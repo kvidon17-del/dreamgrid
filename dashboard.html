@@ -500,12 +500,24 @@ function buildLandPathAtSize(W, H) {
   return path;
 }
 
+function extractPolygons(geo) {
+  const feats = geo.type === 'FeatureCollection' ? geo.features : [geo];
+  const polygons = [];
+  for (const f of feats) {
+    const g = f.geometry || f;
+    if (!g) continue;
+    if (g.type === 'MultiPolygon') polygons.push(...g.coordinates);
+    else if (g.type === 'Polygon') polygons.push(g.coordinates);
+  }
+  return polygons;
+}
+
 async function loadLandData() {
   try {
     const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
     const topology = await res.json();
     const geo = topojson.feature(topology, topology.objects.land);
-    const polygons = geo.type === 'MultiPolygon' ? geo.coordinates : [geo.coordinates];
+    const polygons = extractPolygons(geo);
     const rings = [];
     for (const polygon of polygons) {
       for (const ring of polygon) {
