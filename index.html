@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -226,7 +227,7 @@
     Dream Grid
   </a>
   <ul class="nav-links">
-    <li><a href="/explore">Explore Dreams</a></li>
+    <li><a href="#how">Explore Dreams</a></li>
     <li><a href="#fulfilled">Dreams Fulfilled</a></li>
     <li><a href="#pricing">Pricing</a></li>
     <li><a href="#about">About</a></li>
@@ -265,7 +266,7 @@
     <p class="hero-desc">Share your dream, claim your place,<br>and inspire the world.</p>
     <div class="hero-btns">
       <button class="btn-hero-primary" onclick="openModal('signup')">✦ Share Your Dream</button>
-      <a href="/explore" class="btn-hero-secondary">🌐 Explore the Grid</a>
+      <a href="#grid" class="btn-hero-secondary">🌐 Explore the Grid</a>
     </div>
     <div class="stats-bar">
       <div class="stat-item"><div class="stat-icon-wrap purple">👥</div><div><div class="stat-label">Thousands</div><div class="stat-sub">of dreamers</div></div></div>
@@ -544,18 +545,53 @@ async function signOut() {
   let W, H;
   function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
   resize(); window.addEventListener('resize', resize);
-  const continents = [[0.15,0.38,0.11,0.18,0.55],[0.22,0.64,0.07,0.14,0.48],[0.47,0.27,0.07,0.13,0.72],[0.48,0.57,0.08,0.17,0.55],[0.65,0.28,0.14,0.18,0.62],[0.77,0.67,0.07,0.07,0.48]];
   const dreamColors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f59e0b','#10b981','#3b82f6','#06b6d4'];
   const dots = [];
-  for (const [cx,cy,rx,ry,density] of continents) {
-    const n = Math.floor(density*400);
-    for (let i=0;i<n;i++) {
-      const angle=Math.random()*Math.PI*2, r=Math.sqrt(Math.random());
-      const x=cx+Math.cos(angle)*rx*r, y=cy+Math.sin(angle)*ry*r;
-      const isDream=Math.random()<0.10;
-      dots.push({x,y,size:isDream?Math.random()*3+2:Math.random()*1.0+0.2,baseColor:isDream?dreamColors[Math.floor(Math.random()*dreamColors.length)]:null,isDream,phase:Math.random()*Math.PI*2,speed:0.025+Math.random()*0.04});
+
+  function generateDots(landPath2D, hitCtx, targetCount) {
+    let attempts = 0;
+    while (dots.length < targetCount && attempts < targetCount * 60) {
+      attempts++;
+      const x = Math.random(), y = Math.random();
+      if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
+      const isDream = Math.random() < 0.10;
+      dots.push({
+        x, y,
+        size: isDream ? Math.random() * 3 + 2 : Math.random() * 1.0 + 0.2,
+        baseColor: isDream ? dreamColors[Math.floor(Math.random() * dreamColors.length)] : null,
+        isDream, phase: Math.random() * Math.PI * 2, speed: 0.025 + Math.random() * 0.04,
+      });
     }
   }
+
+  async function loadMapDots() {
+    const hitCtx = document.createElement('canvas').getContext('2d');
+    let landPath2D;
+    try {
+      const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
+      const topology = await res.json();
+      const geo = topojson.feature(topology, topology.objects.land);
+      const polygons = geo.type === 'MultiPolygon' ? geo.coordinates : [geo.coordinates];
+      landPath2D = new Path2D();
+      for (const polygon of polygons) {
+        for (const ring of polygon) {
+          ring.forEach(([lon, lat], i) => {
+            const x = (lon + 180) / 360, y = (90 - lat) / 180;
+            if (i === 0) landPath2D.moveTo(x, y); else landPath2D.lineTo(x, y);
+          });
+          landPath2D.closePath();
+        }
+      }
+    } catch (e) {
+      console.error('World map data failed to load, using fallback shapes', e);
+      const fallback = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
+      landPath2D = new Path2D();
+      for (const [cx,cy,rx,ry] of fallback) landPath2D.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+    }
+    generateDots(landPath2D, hitCtx, 1400);
+  }
+  loadMapDots();
+
   let t=0;
   function draw() {
     t+=0.016; ctx.clearRect(0,0,W,H);
