@@ -168,6 +168,12 @@
   /* LOCATION PICKER */
   .loc-hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
   .loc-hint strong { color: #a78bfa; }
+  .loc-search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .loc-search-row input { flex: 1; padding: 11px 14px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; outline: none; font-family: 'Inter',sans-serif; transition: border-color 0.2s; }
+  .loc-search-row input:focus { border-color: rgba(167,139,250,0.5); }
+  .btn-loc-search { padding: 11px 18px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+  .btn-loc-search:hover { opacity: 0.88; }
+  .btn-loc-search:disabled { opacity: 0.5; cursor: not-allowed; }
   .loc-overview-wrap { position: relative; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: #0a0c1e; aspect-ratio: 2/1; cursor: crosshair; }
   #loc-overview-canvas { width: 100%; height: 100%; display: block; }
   .loc-overview-msg { position: absolute; left: 12px; bottom: 12px; font-size: 11px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 20px; pointer-events: none; }
@@ -336,7 +342,11 @@
       <div class="step-label">Step <span>2 of 4</span> — Place your dream on the world map</div>
 
       <div id="loc-stage-overview">
-        <p class="loc-hint">Click anywhere on the land to zoom in and pick your exact cell<span id="loc-block-hint"></span>. This can be your real city, or the place you dream of — it's up to you.</p>
+        <p class="loc-hint">Search for a place, or click anywhere on the land to zoom in and pick your exact spot<span id="loc-block-hint"></span>. This can be your real city, or the place you dream of — it's up to you.</p>
+        <div class="loc-search-row">
+          <input type="text" id="loc-search-input" placeholder="e.g. Soesterberg, Netherlands" onkeydown="if(event.key==='Enter'){event.preventDefault();searchLocation();}">
+          <button class="btn-loc-search" id="btn-loc-search" onclick="searchLocation()">🔍 Find</button>
+        </div>
         <div class="loc-overview-wrap">
           <canvas id="loc-overview-canvas"></canvas>
           <div class="loc-overview-msg">✦ Click on land to zoom in</div>
@@ -461,8 +471,8 @@ let uploadedPhotoUrl = null;
 let selectedGridRow = null;
 let selectedGridCol = null;
 let selectedBlockSize = 1;
-const GRID_COLS = 240;
-const GRID_ROWS = 120;
+const GRID_COLS = 36000; // ~0.01° per cell (~1km at the equator) — practically unlimited unique spots
+const GRID_ROWS = 18000;
 const ZOOM_SPAN = 12; // cells shown per side when zoomed in
 
 // ── Real world coastlines (Natural Earth via world-atlas, public domain) ──
@@ -481,22 +491,29 @@ let landRings = null;       // array of rings, each ring = array of [xFrac, yFra
 let landPath2D = null;      // Path2D of landRings in 0..1 space, used for hit-testing
 const hitTestCtx = document.createElement('canvas').getContext('2d');
 
+// Draws a ring, starting a new sub-path whenever a point jumps across the map seam
+// (e.g. land near the 180° meridian), instead of drawing a stray line across the whole map.
+function addRingToPath(path, ring, W, H) {
+  let prevX = null;
+  ring.forEach(([x, y], i) => {
+    const px = x * W, py = y * H;
+    if (i === 0 || prevX === null || Math.abs(x - prevX) > 0.5) path.moveTo(px, py);
+    else path.lineTo(px, py);
+    prevX = x;
+  });
+  path.closePath();
+}
+
 function setLandData(rings) {
   landRings = rings;
   const path = new Path2D();
-  for (const ring of rings) {
-    ring.forEach(([x, y], i) => { if (i === 0) path.moveTo(x, y); else path.lineTo(x, y); });
-    path.closePath();
-  }
+  for (const ring of rings) addRingToPath(path, ring, 1, 1);
   landPath2D = path;
 }
 
 function buildLandPathAtSize(W, H) {
   const path = new Path2D();
-  for (const ring of landRings) {
-    ring.forEach(([x, y], i) => { if (i === 0) path.moveTo(x * W, y * H); else path.lineTo(x * W, y * H); });
-    path.closePath();
-  }
+  for (const ring of landRings) addRingToPath(path, ring, W, H);
   return path;
 }
 
@@ -720,6 +737,40 @@ function drawOverviewMap() {
   ctx.lineWidth = 1;
   ctx.stroke(path);
   canvas.onclick = handleOverviewClick;
+}
+
+async function searchLocation() {
+  const input = document.getElementById('loc-search-input');
+  const btn = document.getElementById('btn-loc-search');
+  const query = input.value.trim();
+  if (!query) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ …';
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    const results = await res.json();
+    if (!results.length) {
+      showToast(`Couldn't find "${query}" — try a different spelling`, 'error');
+      return;
+    }
+    const { lat, lon } = results[0];
+    const xFrac = (parseFloat(lon) + 180) / 360;
+    const yFrac = (90 - parseFloat(lat)) / 180;
+    if (!isLand(xFrac, yFrac)) {
+      showToast('That spot landed in the water on our map — try zooming in nearby instead', 'error');
+      return;
+    }
+    const centerCol = Math.floor(xFrac * GRID_COLS);
+    const centerRow = Math.floor(yFrac * GRID_ROWS);
+    enterZoom(centerRow, centerCol);
+  } catch (e) {
+    showToast('Search failed — check your connection and try again', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Find';
+  }
 }
 
 function handleOverviewClick(e) {

@@ -587,9 +587,12 @@ async function signOut() {
       landPath2D = new Path2D();
       for (const polygon of polygons) {
         for (const ring of polygon) {
+          let prevX = null;
           ring.forEach(([lon, lat], i) => {
             const x = (lon + 180) / 360, y = (90 - lat) / 180;
-            if (i === 0) landPath2D.moveTo(x, y); else landPath2D.lineTo(x, y);
+            if (i === 0 || prevX === null || Math.abs(x - prevX) > 0.5) landPath2D.moveTo(x, y);
+            else landPath2D.lineTo(x, y);
+            prevX = x;
           });
           landPath2D.closePath();
         }
