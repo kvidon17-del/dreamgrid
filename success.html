@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Successful — Dream Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --border: rgba(255,255,255,0.08); --muted: rgba(255,255,255,0.45);
+    --green: #10b981; --radius: 16px; --radius-lg: 24px;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: hidden; }
+
+  /* Animated background */
+  .bg-orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(80px); }
+  .orb-1 { width: 500px; height: 500px; background: radial-gradient(ellipse, rgba(99,60,220,0.2), transparent 70%); top: -100px; left: 50%; transform: translateX(-50%); animation: float1 8s ease-in-out infinite; }
+  .orb-2 { width: 300px; height: 300px; background: radial-gradient(ellipse, rgba(16,185,129,0.15), transparent 70%); bottom: 0; right: 10%; animation: float2 6s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-30px)} }
+  @keyframes float2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+
+  /* Stars */
+  #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+  .card {
+    position: relative; z-index: 2;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: var(--radius-lg);
+    padding: 56px 48px;
+    max-width: 520px; width: 100%;
+    text-align: center;
+    animation: slideUp 0.6s ease;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Success animation */
+  .success-ring {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: rgba(16,185,129,0.15);
+    border: 2px solid rgba(16,185,129,0.4);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 28px;
+    animation: pulse 2s ease-in-out infinite;
+    font-size: 44px;
+  }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.3)} 50%{box-shadow:0 0 0 16px rgba(16,185,129,0)} }
+
+  .status-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+    color: var(--green); font-size: 12px; font-weight: 600;
+    padding: 5px 14px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 20px;
+  }
+
+  h1 { font-family: 'Sora',sans-serif; font-size: 32px; font-weight: 900; color: #fff; margin-bottom: 12px; letter-spacing: -0.5px; }
+  .subtitle { font-size: 15px; color: var(--muted); line-height: 1.7; margin-bottom: 32px; }
+
+  /* Dream preview */
+  .dream-preview {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    text-align: left;
+  }
+  .dp-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; }
+  .dp-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .dp-url { font-size: 12px; color: #a78bfa; word-break: break-all; cursor: pointer; transition: color 0.2s; }
+  .dp-url:hover { color: #c4b5fd; }
+
+  .btn-dashboard {
+    display: block; width: 100%;
+    padding: 16px; background: var(--grad-btn);
+    color: #fff; border: none; border-radius: var(--radius);
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    text-decoration: none; transition: all 0.25s;
+    box-shadow: 0 8px 24px rgba(99,60,220,0.35);
+    margin-bottom: 12px;
+  }
+  .btn-dashboard:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(99,60,220,0.5); }
+
+  .btn-share {
+    display: block; width: 100%;
+    padding: 14px; background: rgba(255,255,255,0.06);
+    color: #fff; border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius); font-size: 14px; font-weight: 500;
+    cursor: pointer; text-decoration: none; transition: all 0.2s;
+    margin-bottom: 24px;
+  }
+  .btn-share:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+
+  .social-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+  .social-btn {
+    flex: 1; padding: 10px 8px; border-radius: 10px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+    color: #fff; transition: all 0.2s; text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .social-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+
+  .divider { height: 1px; background: var(--border); margin-bottom: 20px; }
+
+  .inspire-text { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .inspire-link { font-size: 13px; color: #a78bfa; text-decoration: none; font-weight: 600; transition: color 0.2s; }
+  .inspire-link:hover { color: #c4b5fd; }
+
+  /* Loading state */
+  .loading-state { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(167,139,250,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-text { font-size: 15px; color: var(--muted); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1f3a; border: 1px solid rgba(16,185,129,0.4); border-radius: var(--radius); padding: 14px 20px; font-size: 14px; color: #fff; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 480px) {
+    .card { padding: 36px 24px; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+</div>
+
+<div class="card" id="main-card">
+  <div class="loading-state" id="loading-state">
+    <div class="spinner"></div>
+    <div class="loading-text">Processing your payment...</div>
+  </div>
+  <div id="success-state" style="display:none;">
+    <div class="success-ring">🎉</div>
+    <div class="status-tag">✓ Payment successful</div>
+    <h1>Your dream is live!</h1>
+    <p class="subtitle">Congratulations! Your dream now has its permanent place on the world's map. Share it and inspire others!</p>
+    <div class="dream-preview" id="dream-preview" style="display:none;">
+      <div class="dp-label">Your dream</div>
+      <div class="dp-title" id="dp-title">—</div>
+      <div class="dp-url" id="dp-url" onclick="copyLink()">Click to copy your dream link →</div>
+    </div>
+    <a href="/dashboard" class="btn-dashboard">🌟 Go to my dashboard</a>
+    <button class="btn-share" onclick="copyLink()">🔗 Copy dream link</button>
+    <div class="social-row">
+      <a class="social-btn" id="share-fb" href="#" target="_blank">📘 Facebook</a>
+      <a class="social-btn" id="share-wa" href="#" target="_blank">💬 WhatsApp</a>
+      <a class="social-btn" id="share-tw" href="#" target="_blank">🐦 Twitter</a>
+    </div>
+    <div class="divider"></div>
+    <p class="inspire-text">Know someone with a dream?</p>
+    <a href="/" class="inspire-link">✦ Invite them to Dream Grid →</a>
+  </div>
+  <div id="error-state" style="display:none;">
+    <div style="font-size:48px;margin-bottom:20px;">⚠️</div>
+    <h1 style="font-size:24px;margin-bottom:12px;">Something went wrong</h1>
+    <p class="subtitle">Your payment may have been processed. Please check your dashboard or contact support.</p>
+    <a href="/dashboard" class="btn-dashboard">Go to dashboard</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Stars
+(function() {
+  const canvas = document.getElementById('stars');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  function init() { stars = []; for(let i=0;i<80;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.2,a:Math.random(),da:(Math.random()*0.006+0.002)*(Math.random()<0.5?1:-1)}); }
+  function draw() { ctx.clearRect(0,0,W,H); for(const s of stars){s.a+=s.da;if(s.a<=0||s.a>=1)s.da*=-1;ctx.globalAlpha=s.a*0.7;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;requestAnimationFrame(draw); }
+  resize(); init(); draw();
+  window.addEventListener('resize',()=>{resize();init();});
+})();
+
+const { createClient } = supabase;
+const sb = createClient('https://wnbgwonqpjwzdgcngkxi.supabase.co', 'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5');
+
+let dreamUrl = '';
+
+async function init() {
+  // Check if user is logged in
+  const { data: { user } } = await sb.auth.getUser();
+
+  // Get dream ID from URL params or localStorage
+  const params = new URLSearchParams(window.location.search);
+  const dreamId = params.get('dream_id') || localStorage.getItem('last_dream_id');
+
+  if (dreamId) {
+    await loadDream(dreamId);
+  } else if (user) {
+    // Get latest dream
+    const { data: dreams } = await sb.from('dreams').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1);
+    if (dreams && dreams.length > 0) {
+      await showSuccess(dreams[0]);
+    } else {
+      showError();
+    }
+  } else {
+    // Not logged in — just show generic success
+    showGenericSuccess();
+  }
+}
+
+async function loadDream(dreamId) {
+  const { data: dream, error } = await sb.from('dreams').select('*').eq('id', dreamId).single();
+  if (error || !dream) { showError(); return; }
+  showSuccess(dream);
+}
+
+function showSuccess(dream) {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('success-state').style.display = 'block';
+
+  dreamUrl = `${window.location.origin}/dream/${dream.id}`;
+
+  if (dream.title) {
+    document.getElementById('dp-title').textContent = dream.title;
+    document.getElementById('dp-url').textContent = dreamUrl;
+    document.getElementById('dream-preview').style.display = 'block';
+  }
+
+  // Social share links
+  const text = encodeURIComponent(`I just shared my dream on Dream Grid! "${dream.title}" — join me! 🌟`);
+  const url = encodeURIComponent(dreamUrl);
+  document.getElementById('share-fb').href = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+  document.getElementById('share-wa').href = `https://wa.me/?text=${text}%20${url}`;
+  document.getElementById('share-tw').href = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+
+  // Save to localStorage
+  localStorage.setItem('last_dream_id', dream.id);
+
+  // Auto redirect to dashboard after 10 seconds
+  let countdown = 10;
+  const interval = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(interval);
+      window.location.href = '/dashboard';
+    }
+  }, 1000);
+}
+
+function showGenericSuccess() {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('success-state').style.display = 'block';
+  document.getElementById('dream-preview').style.display = 'none';
+}
+
+function showError() {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display = 'block';
+}
+
+function copyLink() {
+  if (!dreamUrl) return;
+  navigator.clipboard.writeText(dreamUrl).then(() => showToast('🔗 Link copied!'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+init();
+</script>
+</body>
+</html>

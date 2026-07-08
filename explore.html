@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explore Dreams — Dream Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --bg2: #0c0f24;
+    --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08);
+    --border-hi: rgba(167,139,250,0.35);
+    --text: #ffffff; --muted: rgba(255,255,255,0.45);
+    --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --green: #10b981; --gold: #f59e0b;
+    --radius-sm: 10px; --radius: 16px; --radius-lg: 24px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 68px;
+    background: rgba(7,9,24,0.9); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 800; color: var(--text); text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; }
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn-nav { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+  .btn-nav:hover { color: #fff; }
+  .btn-nav-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--grad-btn); color: #fff; text-decoration: none;
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+  }
+
+  /* HERO */
+  .page-hero {
+    padding: 100px 48px 48px;
+    background: linear-gradient(180deg, rgba(99,60,220,0.1) 0%, transparent 100%);
+    text-align: center;
+  }
+  .page-hero h1 {
+    font-family: 'Sora',sans-serif;
+    font-size: clamp(32px,5vw,56px);
+    font-weight: 900; color: #fff;
+    letter-spacing: -1px; margin-bottom: 12px;
+  }
+  .page-hero h1 span {
+    background: linear-gradient(90deg,#a78bfa,#f472b6);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .page-hero p { font-size: 16px; color: var(--muted); margin-bottom: 32px; }
+
+  /* STATS BAR */
+  .stats-mini {
+    display: flex; gap: 24px; justify-content: center;
+    flex-wrap: wrap; margin-bottom: 0;
+  }
+  .stat-mini {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted);
+  }
+  .stat-mini strong { color: #fff; font-weight: 700; }
+
+  /* FILTERS */
+  .filters-bar {
+    padding: 24px 48px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 68px; z-index: 100;
+    background: rgba(7,9,24,0.95); backdrop-filter: blur(20px);
+  }
+  .search-box {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    flex: 1; min-width: 200px; max-width: 360px;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus-within { border-color: rgba(167,139,250,0.5); }
+  .search-box input {
+    background: none; border: none; outline: none;
+    color: #fff; font-size: 14px; flex: 1;
+    font-family: 'Inter', sans-serif;
+  }
+  .search-box input::placeholder { color: var(--muted); }
+  .filter-btn {
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: rgba(167,139,250,0.4); color: #fff; }
+  .filter-btn.active { background: rgba(99,60,220,0.2); border-color: rgba(167,139,250,0.4); color: #a78bfa; }
+  .sort-select {
+    padding: 9px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); outline: none; font-family: 'Inter',sans-serif;
+  }
+  .sort-select:focus { border-color: rgba(167,139,250,0.5); color: #fff; }
+  .results-count { font-size: 13px; color: var(--muted); margin-left: auto; }
+
+  /* MAIN */
+  main { padding: 32px 48px 80px; }
+
+  /* GRID */
+  .dreams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  /* DREAM CARD */
+  .dream-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+    transition: all 0.3s; cursor: pointer; text-decoration: none;
+    display: flex; flex-direction: column;
+  }
+  .dream-card:hover { border-color: var(--border-hi); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(99,60,220,0.2); }
+
+  .card-photo {
+    height: 180px; background-size: cover; background-position: center;
+    position: relative; flex-shrink: 0;
+  }
+  .card-photo-placeholder {
+    height: 180px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 48px;
+    background: linear-gradient(135deg, rgba(99,60,220,0.15), rgba(168,85,247,0.08));
+  }
+  .card-tier-badge {
+    position: absolute; top: 12px; left: 12px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px;
+  }
+  .tier-basic { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; }
+  .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
+  .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
+  .tier-vip { background: rgba(217,119,6,0.3); border: 1px solid rgba(217,119,6,0.5); color: #fcd34d; }
+
+  .card-status {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+  }
+  .status-active { background: rgba(99,60,220,0.3); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
+  .status-fulfilled { background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); color: #34d399; }
+
+  .card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+  .card-cell { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .card-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 8px; line-height: 1.4; flex: 1; }
+  .card-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .card-likes { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .card-date { font-size: 12px; color: var(--muted); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center; padding: 80px 24px;
+    grid-column: 1 / -1;
+  }
+  .empty-state .es-icon { font-size: 64px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .empty-state p { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+
+  /* LOADING */
+  #loading {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; flex-direction: column; gap: 16px;
+  }
+  .loading-logo { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .loading-spinner { width: 36px; height: 36px; border: 3px solid rgba(167,139,250,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* LOAD MORE */
+  .load-more-wrap { text-align: center; margin-top: 40px; }
+  .btn-load-more {
+    padding: 14px 36px; border-radius: var(--radius);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border);
+    color: #fff; transition: all 0.2s;
+  }
+  .btn-load-more:hover { background: rgba(255,255,255,0.08); border-color: rgba(167,139,250,0.4); }
+
+  /* CTA BANNER */
+  .cta-banner {
+    background: linear-gradient(135deg, rgba(99,60,220,0.2), rgba(168,85,247,0.12));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: var(--radius-lg); padding: 40px;
+    text-align: center; margin-top: 48px;
+  }
+  .cta-banner h3 { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+  .cta-banner p { font-size: 15px; color: var(--muted); margin-bottom: 24px; }
+  .btn-cta-main {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--grad-btn); color: #fff; text-decoration: none;
+    padding: 14px 32px; border-radius: var(--radius);
+    font-size: 15px; font-weight: 600; border: none; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(99,60,220,0.35); transition: all 0.25s;
+  }
+  .btn-cta-main:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(99,60,220,0.5); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1f3a; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius); padding: 14px 20px; font-size: 14px; color: #fff; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .page-hero { padding: 88px 20px 32px; }
+    .filters-bar { padding: 16px 20px; }
+    main { padding: 24px 20px 60px; }
+    .dreams-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-logo">✦ Dream Grid</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="logo">
+    <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+    Dream Grid
+  </a>
+  <div class="nav-right">
+    <a href="/" class="btn-nav">← Home</a>
+    <a href="/dashboard" class="btn-nav-primary" id="nav-dashboard" style="display:none;">✦ My Dashboard</a>
+    <a href="/" class="btn-nav-primary" id="nav-share" onclick="event.preventDefault(); window.location.href='/';">✦ Share Your Dream</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="page-hero">
+  <h1>Explore <span>Dreams</span> 🌍</h1>
+  <p>Discover what people around the world are dreaming of</p>
+  <div class="stats-mini">
+    <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
+    <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
+    <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters-bar">
+  <div class="search-box">
+    <span>🔍</span>
+    <input type="text" id="search-input" placeholder="Search dreams..." oninput="handleSearch()">
+  </div>
+  <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('active', this)">● Active</button>
+  <button class="filter-btn" onclick="setFilter('fulfilled', this)">✓ Fulfilled</button>
+  <select class="sort-select" onchange="setSort(this.value)">
+    <option value="newest">Newest first</option>
+    <option value="oldest">Oldest first</option>
+    <option value="likes">Most liked</option>
+    <option value="views">Most viewed</option>
+  </select>
+  <span class="results-count" id="results-count"></span>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div class="dreams-grid" id="dreams-grid"></div>
+  <div class="load-more-wrap" id="load-more-wrap" style="display:none;">
+    <button class="btn-load-more" onclick="loadMore()">Load more dreams</button>
+  </div>
+  <div class="cta-banner">
+    <h3>Ready to share your dream? ✦</h3>
+    <p>Join the world's map of dreams. Claim your cell starting from just €3.</p>
+    <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://wnbgwonqpjwzdgcngkxi.supabase.co',
+  'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
+);
+
+const PAGE_SIZE = 12;
+let allDreams = [];
+let filteredDreams = [];
+let currentFilter = 'all';
+let currentSort = 'newest';
+let searchQuery = '';
+let displayedCount = PAGE_SIZE;
+
+const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
+
+async function init() {
+  // Check user
+  const { data: { user } } = await sb.auth.getUser();
+  if (user) {
+    document.getElementById('nav-dashboard').style.display = 'inline-flex';
+    document.getElementById('nav-share').style.display = 'none';
+  }
+
+  await loadDreams();
+  document.getElementById('loading').style.display = 'none';
+}
+
+async function loadDreams() {
+  const { data: dreams, error } = await sb
+    .from('dreams')
+    .select('*, cells(*)')
+    .order('created_at', { ascending: false });
+
+  if (error || !dreams) { renderEmpty(); return; }
+
+  allDreams = dreams;
+
+  // Update stats
+  document.getElementById('total-dreams').textContent = dreams.length;
+  document.getElementById('total-fulfilled').textContent = dreams.filter(d => d.status === 'fulfilled').length;
+  document.getElementById('total-likes').textContent = dreams.reduce((a,d) => a + (d.likes_count||0), 0);
+
+  applyFilters();
+}
+
+function applyFilters() {
+  let result = [...allDreams];
+
+  // Filter by status
+  if (currentFilter === 'active') result = result.filter(d => d.status === 'active');
+  if (currentFilter === 'fulfilled') result = result.filter(d => d.status === 'fulfilled');
+
+  // Search
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(d =>
+      d.title?.toLowerCase().includes(q) ||
+      d.description?.toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  if (currentSort === 'newest') result.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  if (currentSort === 'oldest') result.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  if (currentSort === 'likes') result.sort((a,b) => (b.likes_count||0) - (a.likes_count||0));
+  if (currentSort === 'views') result.sort((a,b) => (b.views_count||0) - (a.views_count||0));
+
+  filteredDreams = result;
+  displayedCount = PAGE_SIZE;
+  renderDreams();
+}
+
+function renderDreams() {
+  const grid = document.getElementById('dreams-grid');
+  const toShow = filteredDreams.slice(0, displayedCount);
+
+  document.getElementById('results-count').textContent = `${filteredDreams.length} dream${filteredDreams.length !== 1 ? 's' : ''}`;
+
+  if (toShow.length === 0) { renderEmpty(); return; }
+
+  grid.innerHTML = toShow.map(dream => {
+    const tier = dream.cells?.tier || 'basic';
+    const emoji = tierEmojis[tier] || '✨';
+    const date = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const photoHtml = dream.photo_url
+      ? `<div class="card-photo" style="background-image:url(${dream.photo_url})">
+           <span class="card-tier-badge tier-${tier}">${tierLabels[tier]}</span>
+           <span class="card-status status-${dream.status}">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
+         </div>`
+      : `<div class="card-photo-placeholder">
+           ${emoji}
+           <span class="card-tier-badge tier-${tier}" style="position:absolute;top:12px;left:12px;">${tierLabels[tier]}</span>
+           <span class="card-status status-${dream.status}" style="position:absolute;top:12px;right:12px;">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
+         </div>`;
+
+    return `
+      <a class="dream-card" href="/dream/${dream.id}">
+        ${photoHtml}
+        <div class="card-body">
+          <div class="card-cell">Cell #${dream.cell_id}</div>
+          <div class="card-title">${dream.title}</div>
+          <div class="card-desc">${dream.description || ''}</div>
+          <div class="card-footer">
+            <div class="card-likes">❤️ ${dream.likes_count || 0}</div>
+            <div class="card-date">${date}</div>
+          </div>
+        </div>
+      </a>
+    `;
+  }).join('');
+
+  // Load more button
+  const loadMoreWrap = document.getElementById('load-more-wrap');
+  loadMoreWrap.style.display = filteredDreams.length > displayedCount ? 'block' : 'none';
+}
+
+function renderEmpty() {
+  document.getElementById('dreams-grid').innerHTML = `
+    <div class="empty-state">
+      <div class="es-icon">🌟</div>
+      <h3>No dreams found</h3>
+      <p>Be the first to share your dream with the world!</p>
+      <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
+    </div>
+  `;
+  document.getElementById('load-more-wrap').style.display = 'none';
+}
+
+function loadMore() {
+  displayedCount += PAGE_SIZE;
+  renderDreams();
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function setSort(sort) {
+  currentSort = sort;
+  applyFilters();
+}
+
+let searchTimer;
+function handleSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchQuery = document.getElementById('search-input').value.trim();
+    applyFilters();
+  }, 300);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+init();
+</script>
+</body>
+</html>

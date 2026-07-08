@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dream Grid — Dream</title>
+
+<!-- OG Meta tags for social sharing — updated dynamically -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Dream Grid">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --bg2: #0c0f24;
+    --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08);
+    --border-hi: rgba(167,139,250,0.35);
+    --text: #ffffff; --muted: rgba(255,255,255,0.45);
+    --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --green: #10b981;
+    --radius-sm: 10px; --radius: 16px; --radius-lg: 24px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 68px;
+    background: rgba(7,9,24,0.85); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 800; color: var(--text); text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; }
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn-nav { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+  .btn-nav:hover { color: #fff; }
+  .btn-nav-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--grad-btn); color: #fff; text-decoration: none;
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .btn-nav-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* HERO */
+  .dream-hero {
+    position: relative; min-height: 60vh;
+    display: flex; align-items: flex-end;
+    padding: 120px 0 0;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(99,60,220,0.15), rgba(168,85,247,0.08));
+  }
+  .hero-photo {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    opacity: 0.35;
+  }
+  .hero-gradient {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 70%;
+    background: linear-gradient(to top, var(--bg), transparent);
+  }
+  .hero-content {
+    position: relative; z-index: 2;
+    width: 100%; max-width: 860px;
+    margin: 0 auto; padding: 48px 48px 0;
+  }
+  .dream-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.15em; padding: 5px 14px; border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .status-active { background: rgba(99,60,220,0.2); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
+  .status-fulfilled { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: var(--green); }
+
+  .dream-title-big {
+    font-family: 'Sora',sans-serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900; color: #fff;
+    line-height: 1.1; letter-spacing: -1px;
+    margin-bottom: 20px;
+  }
+  .dream-meta {
+    display: flex; align-items: center; gap: 20px;
+    flex-wrap: wrap; margin-bottom: 0;
+  }
+  .meta-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted);
+  }
+  .meta-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--grad-btn);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .meta-divider { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+
+  /* MAIN */
+  main { max-width: 860px; margin: 0 auto; padding: 48px 48px 80px; }
+
+  /* DREAM BODY */
+  .dream-body {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 40px;
+    margin-bottom: 28px;
+  }
+  .dream-body p {
+    font-size: 17px; line-height: 1.85;
+    color: rgba(255,255,255,0.8);
+    white-space: pre-wrap;
+  }
+
+  /* PHOTO */
+  .dream-photo-full {
+    width: 100%; border-radius: var(--radius-lg);
+    max-height: 480px; object-fit: cover;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+  }
+
+  /* CELL INFO */
+  .cell-info {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .cell-badge {
+    width: 56px; height: 56px; border-radius: var(--radius-sm);
+    background: var(--grad-btn); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(99,60,220,0.3);
+  }
+  .cell-badge .cn { font-size: 10px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; }
+  .cell-badge .cv { font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 900; color: #fff; }
+  .cell-details h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .cell-details p { font-size: 12px; color: var(--muted); }
+
+  /* ACTIONS */
+  .actions-bar {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .btn-like {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    background: rgba(244,114,182,0.12);
+    border: 1.5px solid rgba(244,114,182,0.3);
+    color: #f472b6; transition: all 0.2s;
+  }
+  .btn-like:hover, .btn-like.liked { background: rgba(244,114,182,0.22); border-color: rgba(244,114,182,0.5); }
+  .btn-share-main {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    background: rgba(167,139,250,0.12);
+    border: 1.5px solid rgba(167,139,250,0.3);
+    color: #a78bfa; transition: all 0.2s;
+  }
+  .btn-share-main:hover { background: rgba(167,139,250,0.22); border-color: rgba(167,139,250,0.5); }
+
+  /* SHARE SECTION */
+  .share-section {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    margin-bottom: 28px;
+  }
+  .share-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+  .share-url {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    margin-bottom: 16px; cursor: pointer; transition: background 0.2s;
+  }
+  .share-url:hover { background: rgba(255,255,255,0.08); }
+  .share-url-text { font-size: 13px; color: #a78bfa; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .share-url-copy { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .social-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .social-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    color: #fff; text-decoration: none; transition: all 0.2s;
+  }
+  .social-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+
+  /* INSPIRE CTA */
+  .inspire-cta {
+    background: linear-gradient(135deg, rgba(99,60,220,0.2), rgba(168,85,247,0.12));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: var(--radius-lg); padding: 40px;
+    text-align: center;
+  }
+  .inspire-cta h3 { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+  .inspire-cta p { font-size: 15px; color: var(--muted); margin-bottom: 24px; line-height: 1.7; }
+  .btn-inspire {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--grad-btn); color: #fff; text-decoration: none;
+    padding: 14px 32px; border-radius: var(--radius);
+    font-size: 15px; font-weight: 600; border: none; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(99,60,220,0.35);
+    transition: all 0.25s;
+  }
+  .btn-inspire:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(99,60,220,0.5); }
+
+  /* FULFILLED BANNER */
+  .fulfilled-banner {
+    background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+    border-radius: var(--radius); padding: 16px 24px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 28px;
+  }
+  .fulfilled-banner .fb-icon { font-size: 28px; }
+  .fulfilled-banner h4 { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 2px; }
+  .fulfilled-banner p { font-size: 13px; color: rgba(16,185,129,0.7); }
+
+  /* LOADING */
+  #loading {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; flex-direction: column; gap: 16px;
+  }
+  .loading-logo { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .loading-spinner { width: 36px; height: 36px; border: 3px solid rgba(167,139,250,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* NOT FOUND */
+  #not-found {
+    display: none; min-height: 100vh;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 24px;
+  }
+  #not-found h2 { font-family: 'Sora',sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 12px; }
+  #not-found p { color: var(--muted); margin-bottom: 28px; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1f3a; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius); padding: 14px 20px; font-size: 14px; color: #fff; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .hero-content { padding: 32px 20px 0; }
+    main { padding: 32px 20px 60px; }
+    .dream-body { padding: 28px 20px; }
+    .dream-title-big { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-logo">✦ Dream Grid</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<div id="not-found" style="display:none;flex-direction:column;">
+  <div style="font-size:64px;margin-bottom:20px;">🌟</div>
+  <h2>Dream not found</h2>
+  <p>This dream may have been removed or the link is incorrect.</p>
+  <a href="/" class="btn-inspire" style="margin:0 auto;">← Back to Dream Grid</a>
+</div>
+
+<!-- NAV -->
+<nav id="main-nav" style="display:none;">
+  <a href="/" class="logo">
+    <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+    Dream Grid
+  </a>
+  <div class="nav-right" id="nav-right">
+    <a href="/" class="btn-nav">← All Dreams</a>
+    <a href="/dashboard" class="btn-nav-primary" id="nav-dashboard" style="display:none;">✦ My Dashboard</a>
+    <a href="/" class="btn-nav-primary" id="nav-share-dream" >✦ Share Your Dream</a>
+  </div>
+</nav>
+
+<!-- DREAM HERO -->
+<div class="dream-hero" id="dream-hero" style="display:none;">
+  <div class="hero-bg"></div>
+  <div class="hero-photo" id="hero-photo"></div>
+  <div class="hero-gradient"></div>
+  <div class="hero-content">
+    <div class="dream-status" id="dream-status"></div>
+    <h1 class="dream-title-big" id="dream-title-big">Loading...</h1>
+    <div class="dream-meta" id="dream-meta"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main id="dream-main" style="display:none;">
+
+  <!-- Fulfilled banner -->
+  <div class="fulfilled-banner" id="fulfilled-banner" style="display:none;">
+    <div class="fb-icon">🏆</div>
+    <div>
+      <h4>This dream came true! ✓</h4>
+      <p id="fulfilled-date">Dream fulfilled</p>
+    </div>
+  </div>
+
+  <!-- Photo -->
+  <img id="dream-photo-full" class="dream-photo-full" style="display:none;" alt="Dream photo">
+
+  <!-- Cell info -->
+  <div class="cell-info" id="cell-info">
+    <div class="cell-badge" id="cell-badge">
+      <span class="cn">Cell</span>
+      <span class="cv" id="cell-num">#?</span>
+    </div>
+    <div class="cell-details">
+      <h4 id="cell-tier-label">Basic Dream</h4>
+      <p id="cell-date">Claimed —</p>
+    </div>
+  </div>
+
+  <!-- Dream text -->
+  <div class="dream-body">
+    <p id="dream-description">Loading...</p>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="actions-bar">
+    <button class="btn-like" id="btn-like" onclick="toggleLike()">
+      <span id="like-icon">🤍</span>
+      <span id="like-count">0</span> Likes
+    </button>
+    <button class="btn-share-main" onclick="toggleShareSection()">
+      🔗 Share this dream
+    </button>
+  </div>
+
+  <!-- Share section -->
+  <div class="share-section" id="share-section" style="display:none;">
+    <div class="share-title">Share this dream 💫</div>
+    <div class="share-url" onclick="copyLink()">
+      <span class="share-url-text" id="share-url-text">—</span>
+      <span class="share-url-copy">📋 Copy</span>
+    </div>
+    <div class="social-btns">
+      <a class="social-btn" id="share-fb" href="#" target="_blank">📘 Facebook</a>
+      <a class="social-btn" id="share-wa" href="#" target="_blank">💬 WhatsApp</a>
+      <a class="social-btn" id="share-tw" href="#" target="_blank">🐦 Twitter / X</a>
+      <a class="social-btn" id="share-tg" href="#" target="_blank">✈️ Telegram</a>
+    </div>
+  </div>
+
+  <!-- Inspire CTA -->
+  <div class="inspire-cta">
+    <h3>What's your dream? ✦</h3>
+    <p>Join thousands of dreamers from 40+ countries. Claim your permanent place on the world's dream map — starting from just €3.</p>
+    <a href="/" class="btn-inspire">✦ Share Your Dream</a>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://wnbgwonqpjwzdgcngkxi.supabase.co',
+  'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
+);
+
+let currentDream = null;
+let currentUser = null;
+let hasLiked = false;
+const pageUrl = window.location.href;
+
+async function init() {
+  // Get dream ID from URL: /dream/[id]
+  const pathParts = window.location.pathname.split('/');
+  const dreamId = pathParts[pathParts.length - 1];
+
+  if (!dreamId || dreamId === 'dream') {
+    showNotFound(); return;
+  }
+
+  // Check logged in user
+  const { data: { user } } = await sb.auth.getUser();
+  currentUser = user;
+  if (user) {
+    document.getElementById('nav-dashboard').style.display = 'inline-flex';
+    document.getElementById('nav-share-dream').style.display = 'none';
+  }
+
+  // Load dream
+  const { data: dream, error } = await sb.from('dreams')
+    .select('*, cells(*)')
+    .eq('id', dreamId)
+    .single();
+
+  if (error || !dream) { showNotFound(); return; }
+
+  currentDream = dream;
+
+  // Update view count
+  sb.from('dreams').update({ views_count: (dream.views_count || 0) + 1 }).eq('id', dreamId).then(() => {});
+
+  // Check if liked
+  if (user) {
+    const { data: like } = await sb.from('likes').select('id').eq('dream_id', dreamId).eq('user_id', user.id).single();
+    hasLiked = !!like;
+  }
+
+  renderDream(dream);
+  document.getElementById('loading').style.display = 'none';
+}
+
+function renderDream(dream) {
+  // Page title
+  document.title = `${dream.title} — Dream Grid`;
+
+  // Hero
+  document.getElementById('dream-hero').style.display = 'flex';
+  document.getElementById('dream-main').style.display = 'block';
+  document.getElementById('main-nav').style.display = 'flex';
+
+  // Status badge
+  const statusEl = document.getElementById('dream-status');
+  if (dream.status === 'fulfilled') {
+    statusEl.className = 'dream-status status-fulfilled';
+    statusEl.textContent = '✓ Dream Fulfilled';
+    document.getElementById('fulfilled-banner').style.display = 'flex';
+    if (dream.fulfilled_at) {
+      document.getElementById('fulfilled-date').textContent = 'Fulfilled on ' + new Date(dream.fulfilled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  } else {
+    statusEl.className = 'dream-status status-active';
+    statusEl.textContent = '● Active Dream';
+  }
+
+  // Title
+  document.getElementById('dream-title-big').textContent = dream.title;
+
+  // Meta
+  const joined = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('dream-meta').innerHTML = `
+    <div class="meta-item">
+      <div class="meta-avatar">✦</div>
+      <span>Dreamer</span>
+    </div>
+    <div class="meta-divider"></div>
+    <div class="meta-item">📅 ${joined}</div>
+    <div class="meta-divider"></div>
+    <div class="meta-item">👁 ${(dream.views_count || 0) + 1} views</div>
+  `;
+
+  // Hero photo background
+  if (dream.photo_url) {
+    document.getElementById('hero-photo').style.backgroundImage = `url(${dream.photo_url})`;
+    document.getElementById('dream-photo-full').src = dream.photo_url;
+    document.getElementById('dream-photo-full').style.display = 'block';
+  }
+
+  // Description
+  document.getElementById('dream-description').textContent = dream.description || '';
+
+  // Cell info
+  const tierLabels = { basic: 'Basic Dream · 1 cell', standard: 'Big Dream · 4 cells', premium: 'Dream of the Year · 9 cells', vip: 'Dream Legend · VIP' };
+  const tierColors = { basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
+  const tier = dream.cells?.tier || 'basic';
+  document.getElementById('cell-num').textContent = `#${dream.cell_id}`;
+  document.getElementById('cell-tier-label').textContent = tierLabels[tier] || 'Dream';
+  document.getElementById('cell-badge').style.background = `linear-gradient(135deg, ${tierColors[tier]}, ${tierColors[tier]}99)`;
+  document.getElementById('cell-date').textContent = 'Claimed on ' + new Date(dream.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  // Likes
+  document.getElementById('like-count').textContent = dream.likes_count || 0;
+  if (hasLiked) {
+    document.getElementById('like-icon').textContent = '❤️';
+    document.getElementById('btn-like').classList.add('liked');
+  }
+
+  // Share links
+  const dreamUrl = `${window.location.origin}/dream/${dream.id}`;
+  const text = encodeURIComponent(`"${dream.title}" — shared on Dream Grid 🌟`);
+  const urlEnc = encodeURIComponent(dreamUrl);
+  document.getElementById('share-url-text').textContent = dreamUrl;
+  document.getElementById('share-fb').href = `https://www.facebook.com/sharer/sharer.php?u=${urlEnc}`;
+  document.getElementById('share-wa').href = `https://wa.me/?text=${text}%20${urlEnc}`;
+  document.getElementById('share-tw').href = `https://twitter.com/intent/tweet?text=${text}&url=${urlEnc}`;
+  document.getElementById('share-tg').href = `https://t.me/share/url?url=${urlEnc}&text=${text}`;
+}
+
+async function toggleLike() {
+  if (!currentUser) {
+    showToast('Sign in to like this dream!');
+    setTimeout(() => window.location.href = '/', 1500);
+    return;
+  }
+  if (!currentDream) return;
+
+  if (hasLiked) {
+    await sb.from('likes').delete().eq('dream_id', currentDream.id).eq('user_id', currentUser.id);
+    await sb.from('dreams').update({ likes_count: Math.max(0, (currentDream.likes_count || 0) - 1) }).eq('id', currentDream.id);
+    hasLiked = false;
+    currentDream.likes_count = Math.max(0, (currentDream.likes_count || 0) - 1);
+    document.getElementById('like-icon').textContent = '🤍';
+    document.getElementById('btn-like').classList.remove('liked');
+  } else {
+    await sb.from('likes').insert({ dream_id: currentDream.id, user_id: currentUser.id });
+    await sb.from('dreams').update({ likes_count: (currentDream.likes_count || 0) + 1 }).eq('id', currentDream.id);
+    hasLiked = true;
+    currentDream.likes_count = (currentDream.likes_count || 0) + 1;
+    document.getElementById('like-icon').textContent = '❤️';
+    document.getElementById('btn-like').classList.add('liked');
+    showToast('❤️ You liked this dream!');
+  }
+  document.getElementById('like-count').textContent = currentDream.likes_count;
+}
+
+function toggleShareSection() {
+  const section = document.getElementById('share-section');
+  section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+
+function copyLink() {
+  const url = `${window.location.origin}/dream/${currentDream.id}`;
+  navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied to clipboard!'));
+}
+
+function showNotFound() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('not-found').style.display = 'flex';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+init();
+</script>
+</body>
+</html>

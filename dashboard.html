@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Dream Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=AXdTcQ4rHmU9FJNYicH7_LRkYKLFd8Npr9EuRXxWq9trt01o7ABujwWL01OmpVoC-YEQ0ZdI3ZlKvpGV&currency=EUR"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --bg2: #0c0f24; --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-hi: rgba(167,139,250,0.35);
+    --text: #ffffff; --muted: rgba(255,255,255,0.45);
+    --accent: #7c5cf6; --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --radius-sm: 10px; --radius: 16px; --radius-lg: 24px;
+    --green: #10b981; --gold: #f59e0b;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 68px;
+    background: rgba(7,9,24,0.9); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 800; color: var(--text); text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .user-chip { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 40px; padding: 6px 16px 6px 6px; }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; }
+  .user-email { font-size: 13px; color: var(--muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-signout { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+  .btn-signout:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+  .btn-home { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+  .btn-home:hover { color: #fff; }
+
+  main { padding: 100px 48px 60px; max-width: 1100px; margin: 0 auto; }
+
+  .welcome-banner {
+    background: linear-gradient(135deg, rgba(99,60,220,0.2), rgba(168,85,247,0.12));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: var(--radius-lg); padding: 40px 48px;
+    margin-bottom: 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative; overflow: hidden;
+  }
+  .welcome-banner::before { content: '✦'; position: absolute; right: 48px; top: 50%; transform: translateY(-50%); font-size: 120px; color: rgba(167,139,250,0.06); pointer-events: none; }
+  .welcome-text h1 { font-family: 'Sora',sans-serif; font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .welcome-text h1 span { background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .welcome-text p { font-size: 15px; color: var(--muted); }
+  .btn-claim { display: inline-flex; align-items: center; gap: 8px; background: var(--grad-btn); color: #fff; padding: 14px 28px; border-radius: var(--radius); font-size: 15px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 8px 24px rgba(99,60,220,0.35); transition: all 0.25s; white-space: nowrap; }
+  .btn-claim:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(99,60,220,0.5); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 40px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; transition: border-color 0.3s; }
+  .stat-card:hover { border-color: var(--border-hi); }
+  .stat-card-icon { font-size: 28px; margin-bottom: 12px; }
+  .stat-card-value { font-family: 'Sora',sans-serif; font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .stat-card-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .section-title { font-family: 'Sora',sans-serif; font-size: 20px; font-weight: 700; color: #fff; }
+  .section-tag { font-size: 11px; font-weight: 600; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.12em; }
+
+  .no-dream-card { background: var(--surface); border: 2px dashed rgba(167,139,250,0.25); border-radius: var(--radius-lg); padding: 60px 48px; text-align: center; }
+  .no-dream-card .nd-icon { font-size: 48px; margin-bottom: 16px; }
+  .no-dream-card h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+  .no-dream-card p { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; max-width: 400px; margin-left: auto; margin-right: auto; }
+
+  .dream-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; display: flex; gap: 28px; align-items: flex-start; }
+  .dream-cell-badge { width: 80px; height: 80px; border-radius: var(--radius); background: var(--grad-btn); display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.35); }
+  .dream-cell-badge .cell-num { font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; }
+  .dream-cell-badge .cell-val { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; color: #fff; }
+  .dream-info { flex: 1; }
+  .dream-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .dream-desc { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+  .dream-photo { width: 100%; max-height: 200px; object-fit: cover; border-radius: var(--radius); margin-bottom: 16px; }
+  .dream-tags { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dream-tag { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+  .tag-active { background: rgba(99,60,220,0.2); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
+  .tag-tier { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
+  .dream-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .btn-action { padding: 9px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border); background: rgba(255,255,255,0.06); color: #fff; }
+  .btn-action:hover { background: rgba(255,255,255,0.1); }
+  .btn-action.green { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: var(--green); }
+  .btn-action.green:hover { background: rgba(16,185,129,0.25); }
+  .btn-action.purple { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.25); color: #a78bfa; }
+  .btn-action.purple:hover { background: rgba(167,139,250,0.2); }
+
+  .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; display: flex; align-items: center; gap: 24px; }
+  .profile-avatar-big { width: 72px; height: 72px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.3); }
+  .profile-info h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .profile-info p { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .profile-joined { font-size: 12px; color: rgba(255,255,255,0.25); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+  .modal { background: #0f1228; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius-lg); padding: 40px; width: 100%; max-width: 560px; position: relative; transform: translateY(20px); transition: transform 0.3s; max-height: 90vh; overflow-y: auto; }
+  .modal-overlay.active .modal { transform: translateY(0); }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  .modal-close:hover { color: #fff; }
+  .modal-title { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+  .modal-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+
+  .form-steps { display: flex; gap: 8px; margin-bottom: 28px; }
+  .form-step { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+  .form-step.active { background: #a78bfa; }
+  .form-step.done { background: var(--green); }
+  .step-label { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+  .step-label span { color: #a78bfa; font-weight: 600; }
+
+  .tier-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 28px; }
+  .tier-card { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: all 0.2s; text-align: center; position: relative; }
+  .tier-card:hover { border-color: rgba(167,139,250,0.4); }
+  .tier-card.selected { border-color: #a78bfa; background: rgba(99,60,220,0.15); }
+  .tier-card.popular-tier { border-color: rgba(167,139,250,0.3); }
+  .tier-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--grad-btn); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .t-name { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .t-price { font-family: 'Sora',sans-serif; font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+  .t-cells { font-size: 11px; color: var(--muted); }
+
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .form-group input[type="text"],
+  .form-group input[type="url"],
+  .form-group textarea { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; font-family: 'Inter',sans-serif; }
+  .form-group input:focus, .form-group textarea:focus { border-color: rgba(167,139,250,0.5); }
+  .form-group textarea { height: 100px; line-height: 1.6; resize: none; }
+  .char-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 4px; }
+
+  /* PHOTO UPLOAD */
+  .photo-upload-area {
+    border: 2px dashed rgba(167,139,250,0.3); border-radius: var(--radius);
+    padding: 32px; text-align: center; cursor: pointer;
+    transition: all 0.2s; margin-bottom: 12px; position: relative;
+  }
+  .photo-upload-area:hover { border-color: #a78bfa; background: rgba(167,139,250,0.05); }
+  .photo-upload-area.has-file { border-color: var(--green); background: rgba(16,185,129,0.05); }
+  .photo-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-text { font-size: 14px; color: var(--muted); }
+  .upload-text strong { color: #a78bfa; }
+  .upload-preview { width: 100%; max-height: 150px; object-fit: cover; border-radius: var(--radius-sm); margin-top: 12px; display: none; }
+  .photo-divider { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
+  .photo-divider::before, .photo-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .photo-divider span { font-size: 12px; color: var(--muted); }
+
+  .payment-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+  .payment-summary { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .ps-label { font-size: 14px; color: var(--muted); }
+  .ps-tier { font-size: 12px; color: #a78bfa; font-weight: 600; }
+  .ps-price { font-family: 'Sora',sans-serif; font-size: 28px; font-weight: 900; color: #fff; }
+  #paypal-button-container { min-height: 50px; }
+
+  .btn-next { width: 100%; padding: 14px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: 'Inter',sans-serif; margin-top: 8px; }
+  .btn-next:hover { opacity: 0.88; }
+  .btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-back { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; margin-top: 12px; display: block; width: 100%; text-align: center; transition: color 0.2s; }
+  .btn-back:hover { color: #fff; }
+
+  /* LOCATION PICKER */
+  .loc-hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .loc-hint strong { color: #a78bfa; }
+  .loc-overview-wrap { position: relative; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: #0a0c1e; aspect-ratio: 2/1; cursor: crosshair; }
+  #loc-overview-canvas { width: 100%; height: 100%; display: block; }
+  .loc-overview-msg { position: absolute; left: 12px; bottom: 12px; font-size: 11px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 20px; pointer-events: none; }
+  .loc-zoom-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .loc-region-label { font-size: 13px; color: #fff; font-weight: 600; }
+  .loc-region-sub { font-size: 11px; color: var(--muted); }
+  .btn-loc-back { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s; }
+  .btn-loc-back:hover { color: #fff; border-color: rgba(167,139,250,0.4); }
+  .loc-zoom-wrap { border-radius: var(--radius); border: 1px solid var(--border); background: #0a0c1e; padding: 10px; display: flex; justify-content: center; }
+  .loc-grid { display: grid; gap: 3px; }
+  .loc-cell { width: 26px; height: 26px; border-radius: 5px; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; border: 1px solid transparent; }
+  .loc-cell.land { background: rgba(124,92,246,0.16); }
+  .loc-cell.land:hover { transform: scale(1.12); border-color: rgba(167,139,250,0.6); }
+  .loc-cell.ocean { background: rgba(255,255,255,0.02); cursor: not-allowed; }
+  .loc-cell.taken { background: rgba(248,113,113,0.18); cursor: not-allowed; }
+  .loc-cell.selected { background: var(--grad-btn); box-shadow: 0 0 0 2px #fff, 0 4px 14px rgba(124,92,246,0.5); }
+  .loc-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 14px 0; font-size: 11px; color: var(--muted); }
+  .loc-legend-item { display: flex; align-items: center; gap: 6px; }
+  .loc-legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .loc-selection-bar { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 8px; font-size: 13px; }
+  .loc-selection-bar.active { border-color: rgba(167,139,250,0.4); background: rgba(99,60,220,0.1); }
+  .loc-selection-text { color: var(--muted); }
+  .loc-selection-text strong { color: #fff; }
+
+  .success-screen { text-align: center; padding: 20px 0; }
+  .success-icon { font-size: 64px; margin-bottom: 20px; }
+  .success-screen h2 { font-family: 'Sora',sans-serif; font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 12px; }
+  .success-screen p { font-size: 15px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; }
+  .dream-url-box { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: #a78bfa; word-break: break-all; margin-bottom: 20px; cursor: pointer; transition: background 0.2s; }
+  .dream-url-box:hover { background: rgba(255,255,255,0.1); }
+
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 16px; }
+  .loading-logo { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .loading-spinner { width: 36px; height: 36px; border: 3px solid rgba(167,139,250,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1f3a; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius); padding: 14px 20px; font-size: 14px; color: #fff; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; max-width: 320px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(16,185,129,0.4); }
+  .toast.error { border-color: rgba(248,113,113,0.4); }
+
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    main { padding: 88px 20px 40px; }
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    .welcome-banner { flex-direction: column; gap: 20px; padding: 28px; }
+    .dream-card { flex-direction: column; }
+    .tier-grid { grid-template-columns: 1fr 1fr; }
+    .modal { padding: 28px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-logo">✦ Dream Grid</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<nav>
+  <a href="index" class="logo">
+    <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+    Dream Grid
+  </a>
+  <div class="nav-right">
+    <a href="index" class="btn-home">← Back to home</a>
+    <div class="user-chip">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span class="user-email" id="user-email-nav">Loading...</span>
+    </div>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<main>
+  <div class="welcome-banner">
+    <div class="welcome-text">
+      <h1>Welcome back, <span id="welcome-name">Dreamer</span>! ✦</h1>
+      <p>This is your personal space on the world's dream map.</p>
+    </div>
+    <button class="btn-claim" onclick="openDreamModal()">✦ Claim your cell</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-card-icon">🌍</div><div class="stat-card-value" id="stat-cells">0</div><div class="stat-card-label">Cells owned</div></div>
+    <div class="stat-card"><div class="stat-card-icon">💭</div><div class="stat-card-value" id="stat-dreams">0</div><div class="stat-card-label">Dreams shared</div></div>
+    <div class="stat-card"><div class="stat-card-icon">❤️</div><div class="stat-card-value" id="stat-likes">0</div><div class="stat-card-label">Likes received</div></div>
+    <div class="stat-card"><div class="stat-card-icon">✨</div><div class="stat-card-value" id="stat-views">0</div><div class="stat-card-label">Dream views</div></div>
+  </div>
+
+  <div style="margin-bottom: 40px;">
+    <div class="section-header">
+      <div class="section-title">My Dream</div>
+      <div class="section-tag">✦ Your place on the map</div>
+    </div>
+    <div id="dream-container">
+      <div class="no-dream-card">
+        <div class="nd-icon">🌟</div>
+        <h3>You haven't claimed your cell yet</h3>
+        <p>Choose a tier and claim your permanent place on the world's dream map.</p>
+        <button class="btn-claim" onclick="openDreamModal()">✦ Claim your first cell</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-header">
+      <div class="section-title">My Profile</div>
+      <div class="section-tag">Account details</div>
+    </div>
+    <div class="profile-card">
+      <div class="profile-avatar-big" id="profile-avatar-big">?</div>
+      <div class="profile-info">
+        <h3 id="profile-name">Loading...</h3>
+        <p id="profile-email">Loading...</p>
+        <div class="profile-joined" id="profile-joined">Member since —</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- DREAM MODAL -->
+<div class="modal-overlay" id="dream-modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeDreamModal()">✕</button>
+    <div class="form-steps">
+      <div class="form-step active" id="step-bar-1"></div>
+      <div class="form-step" id="step-bar-2"></div>
+      <div class="form-step" id="step-bar-3"></div>
+      <div class="form-step" id="step-bar-4"></div>
+    </div>
+
+    <!-- STEP 1: TIER -->
+    <div id="step-1">
+      <div class="modal-title">Choose your tier</div>
+      <div class="modal-sub">Select the size of your dream on the map.</div>
+      <div class="tier-grid">
+        <div class="tier-card" id="tier-basic" onclick="selectTier('basic',3)">
+          <div class="t-name">My Dream</div>
+          <div class="t-price">€3</div>
+          <div class="t-cells">1 cell · text only</div>
+        </div>
+        <div class="tier-card" id="tier-standard" onclick="selectTier('standard',10)">
+          <div class="t-name">Big Dream</div>
+          <div class="t-price">€10</div>
+          <div class="t-cells">4 cells · + photo</div>
+        </div>
+        <div class="tier-card popular-tier" id="tier-premium" onclick="selectTier('premium',25)">
+          <div class="tier-badge">✦ Popular</div>
+          <div class="t-name">Dream of the Year</div>
+          <div class="t-price">€25</div>
+          <div class="t-cells">9 cells · photo + video</div>
+        </div>
+        <div class="tier-card" id="tier-vip" onclick="selectTier('vip',100)">
+          <div class="t-name">Dream Legend</div>
+          <div class="t-price">€100</div>
+          <div class="t-cells">Dedicated page · VIP</div>
+        </div>
+      </div>
+      <button class="btn-next" id="btn-next-1" onclick="goToLocationStep()" disabled>Continue →</button>
+    </div>
+
+    <!-- STEP LOCATION: PICK A SPOT ON THE MAP -->
+    <div id="step-location" style="display:none;">
+      <div class="modal-title">Choose your spot</div>
+      <div class="step-label">Step <span>2 of 4</span> — Place your dream on the world map</div>
+
+      <div id="loc-stage-overview">
+        <p class="loc-hint">Click anywhere on the land to zoom in and pick your exact cell<span id="loc-block-hint"></span>. This can be your real city, or the place you dream of — it's up to you.</p>
+        <div class="loc-overview-wrap">
+          <canvas id="loc-overview-canvas"></canvas>
+          <div class="loc-overview-msg">✦ Click on land to zoom in</div>
+        </div>
+      </div>
+
+      <div id="loc-stage-zoom" style="display:none;">
+        <div class="loc-zoom-head">
+          <div>
+            <div class="loc-region-label">Zoomed-in view</div>
+            <div class="loc-region-sub" id="loc-region-sub"></div>
+          </div>
+          <button class="btn-loc-back" onclick="backToOverview()">← Choose another region</button>
+        </div>
+        <div class="loc-zoom-wrap">
+          <div class="loc-grid" id="loc-grid"></div>
+        </div>
+        <div class="loc-legend">
+          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(124,92,246,0.16);"></span>Free</div>
+          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(248,113,113,0.18);"></span>Taken</div>
+          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(255,255,255,0.02);"></span>Ocean</div>
+          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:var(--grad-btn);"></span>Your selection</div>
+        </div>
+        <div class="loc-selection-bar" id="loc-selection-bar">
+          <span class="loc-selection-text" id="loc-selection-text">No cell selected yet — click a free spot above.</span>
+        </div>
+      </div>
+
+      <button class="btn-next" id="btn-next-loc" onclick="goToStep2()" disabled>Continue →</button>
+      <button class="btn-back" onclick="goToStep1()">← Back</button>
+    </div>
+
+    <!-- STEP 2: FORM -->
+    <div id="step-2" style="display:none;">
+      <div class="modal-title">Write your dream</div>
+      <div class="step-label">Step <span>3 of 4</span> — Tell the world what you dream of</div>
+      <div class="form-group">
+        <label>Dream title *</label>
+        <input type="text" id="dream-title" placeholder="e.g. Open my own bakery in Amsterdam" maxlength="80" oninput="updateCharCount('dream-title','title-count',80)">
+        <div class="char-count"><span id="title-count">0</span>/80</div>
+      </div>
+      <div class="form-group">
+        <label>Describe your dream *</label>
+        <textarea id="dream-desc" placeholder="Share the story behind your dream..." maxlength="300" oninput="updateCharCount('dream-desc','desc-count',300)"></textarea>
+        <div class="char-count"><span id="desc-count">0</span>/300</div>
+      </div>
+
+      <!-- PHOTO UPLOAD (Standard+) -->
+      <div id="photo-group" style="display:none;">
+        <div class="form-group">
+          <label>Photo (optional)</label>
+          <div class="photo-upload-area" id="upload-area">
+            <input type="file" id="photo-file" accept="image/*" onchange="handleFileSelect(event)">
+            <div class="upload-icon">📸</div>
+            <div class="upload-text">
+              <strong>Click to upload</strong> or drag & drop<br>
+              <span style="font-size:12px;">JPG, PNG, GIF up to 5MB</span>
+            </div>
+            <img id="upload-preview" class="upload-preview" alt="Preview">
+          </div>
+          <div class="photo-divider"><span>or paste image URL</span></div>
+          <input type="url" id="dream-photo-url" placeholder="https://example.com/photo.jpg" oninput="handleUrlInput()">
+        </div>
+      </div>
+
+      <button class="btn-next" onclick="goToStep3()">Continue to payment →</button>
+      <button class="btn-back" onclick="goToLocationStep()">← Back</button>
+    </div>
+
+    <!-- STEP 3: PAYMENT -->
+    <div id="step-3" style="display:none;">
+      <div class="modal-title">Complete payment</div>
+      <div class="step-label">Step <span>4 of 4</span> — Secure your place on the map</div>
+      <div class="payment-box">
+        <div class="payment-summary">
+          <div>
+            <div class="ps-label">You selected</div>
+            <div class="ps-tier" id="payment-tier-label">BASIC</div>
+          </div>
+          <div class="ps-price" id="payment-price">€3</div>
+        </div>
+        <div id="paypal-button-container"></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;">
+          <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">— Admin test only —</p>
+          <button onclick="testWithoutPayment()" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(16,185,129,0.25)'" onmouseout="this.style.background='rgba(16,185,129,0.15)'">
+            🧪 Test without payment
+          </button>
+        </div>
+      </div>
+      <button class="btn-back" onclick="goToStep2()">← Back</button>
+    </div>
+
+    <!-- SUCCESS -->
+    <div id="step-success" style="display:none;">
+      <div class="success-screen">
+        <div class="success-icon">🎉</div>
+        <h2>Your dream is live!</h2>
+        <p>Congratulations! Your dream is now on the world's map. Share it with the world!</p>
+        <div class="dream-url-box" id="dream-url-box" onclick="copyDreamUrl()">Click to copy your dream link</div>
+        <button class="btn-next" onclick="closeDreamModal()">Go to my dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://wnbgwonqpjwzdgcngkxi.supabase.co',
+  'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
+);
+
+let currentUser = null;
+let selectedTier = null;
+let selectedPrice = 0;
+let createdDreamId = null;
+let uploadedPhotoUrl = null;
+
+// ── Grid location state ──
+let selectedGridRow = null;
+let selectedGridCol = null;
+let selectedBlockSize = 1;
+const GRID_COLS = 240;
+const GRID_ROWS = 120;
+const ZOOM_SPAN = 12; // cells shown per side when zoomed in
+// Same landmass shapes used for the decorative map on index.html, so cells line up with visible land
+const CONTINENTS = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
+
+async function init() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) { window.location.href = 'index'; return; }
+  currentUser = user;
+  populateUI(user);
+  await loadUserData(user);
+  document.getElementById('loading').style.display = 'none';
+}
+
+function populateUI(user) {
+  const email = user.email || '';
+  const name = email.split('@')[0];
+  const initial = email[0].toUpperCase();
+  document.getElementById('user-avatar').textContent = initial;
+  document.getElementById('user-email-nav').textContent = email;
+  document.getElementById('welcome-name').textContent = name;
+  document.getElementById('profile-avatar-big').textContent = initial;
+  document.getElementById('profile-name').textContent = name;
+  document.getElementById('profile-email').textContent = email;
+  const joined = new Date(user.created_at);
+  document.getElementById('profile-joined').textContent = 'Member since ' + joined.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+async function loadUserData(user) {
+  const { data: dreams } = await sb.from('dreams').select('*, cells(*)').eq('user_id', user.id).order('created_at', { ascending: false });
+  if (dreams && dreams.length > 0) {
+    document.getElementById('stat-dreams').textContent = dreams.length;
+    document.getElementById('stat-cells').textContent = dreams.length;
+    document.getElementById('stat-likes').textContent = dreams.reduce((a,d) => a + (d.likes_count||0), 0);
+    document.getElementById('stat-views').textContent = dreams.reduce((a,d) => a + (d.views_count||0), 0);
+    renderAllDreams(dreams);
+  }
+}
+
+function renderAllDreams(dreams) {
+  const container = document.getElementById('dream-container');
+  container.innerHTML = dreams.map(dream => {
+    const photoHtml = dream.photo_url ? `<img src="${dream.photo_url}" class="dream-photo" alt="Dream photo">` : '';
+    const tierColors = { basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
+    const color = tierColors[dream.cells?.tier] || '#6366f1';
+    return `
+      <div class="dream-card" style="margin-bottom:16px;">
+        <div class="dream-cell-badge" style="background:linear-gradient(135deg,${color},${color}99);">
+          <span class="cell-num">Cell</span>
+          <span class="cell-val">#${dream.cell_id}</span>
+        </div>
+        <div class="dream-info">
+          ${photoHtml}
+          <div class="dream-title">${dream.title}</div>
+          <div class="dream-desc">${dream.description || ''}</div>
+          <div class="dream-tags">
+            <span class="dream-tag tag-active">● ${dream.status === 'fulfilled' ? 'Fulfilled ✓' : 'Active Dream'}</span>
+            <span class="dream-tag tag-tier">${(dream.cells?.tier || 'basic').toUpperCase()}</span>
+          </div>
+          <div class="dream-actions">
+            <button class="btn-action" onclick="showToast('Edit coming soon!','success')">✏️ Edit</button>
+            <button class="btn-action green" onclick="markFulfilled('${dream.id}')">✓ Mark Fulfilled</button>
+            <button class="btn-action purple" onclick="shareDream('${dream.id}')">🔗 Share</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── MODAL ──
+function openDreamModal() {
+  document.getElementById('dream-modal').classList.add('active');
+  resetLocationSelection();
+  goToStep1();
+}
+function closeDreamModal() {
+  document.getElementById('dream-modal').classList.remove('active');
+  if (createdDreamId) loadUserData(currentUser);
+  uploadedPhotoUrl = null;
+}
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('dream-modal')) closeDreamModal();
+}
+
+function updateStepBars(active) {
+  for (let i = 1; i <= 4; i++) {
+    const bar = document.getElementById(`step-bar-${i}`);
+    bar.className = 'form-step' + (i < active ? ' done' : i === active ? ' active' : '');
+  }
+}
+
+function goToStep1() { hideAllSteps(); document.getElementById('step-1').style.display = 'block'; updateStepBars(1); }
+function goToLocationStep() {
+  hideAllSteps();
+  document.getElementById('step-location').style.display = 'block';
+  updateStepBars(2);
+  const size = tierBlockSize(selectedTier);
+  document.getElementById('loc-block-hint').textContent = size > 1 ? ` (a ${size}×${size} block for your tier)` : '';
+  initLocationStep();
+}
+async function goToStep2() {
+  if (selectedGridRow === null) return showToast('Please pick a spot on the map first!', 'error');
+
+  // Re-check right before moving on, in case someone else claimed it in the meantime
+  const size = selectedBlockSize;
+  const occupied = await fetchOccupiedInRange(selectedGridRow - 3, selectedGridRow + size + 3, selectedGridCol - 3, selectedGridCol + size + 3);
+  const occupiedSet = buildOccupiedSet(occupied);
+  const stillFree = footprintCells(selectedGridRow, selectedGridCol, size).every(key => !occupiedSet.has(key));
+  if (!stillFree) {
+    showToast('Oh no — someone just claimed that spot. Please pick another.', 'error');
+    const row = selectedGridRow, col = selectedGridCol;
+    resetLocationSelection();
+    return enterZoom(row, col);
+  }
+
+  hideAllSteps();
+  document.getElementById('step-2').style.display = 'block';
+  updateStepBars(3);
+  document.getElementById('photo-group').style.display = ['standard','premium','vip'].includes(selectedTier) ? 'block' : 'none';
+}
+function goToStep3() {
+  const title = document.getElementById('dream-title').value.trim();
+  const desc = document.getElementById('dream-desc').value.trim();
+  if (!title) return showToast('Please enter a dream title!', 'error');
+  if (!desc) return showToast('Please describe your dream!', 'error');
+  hideAllSteps();
+  document.getElementById('step-3').style.display = 'block';
+  updateStepBars(4);
+  document.getElementById('payment-tier-label').textContent = selectedTier.toUpperCase();
+  document.getElementById('payment-price').textContent = `€${selectedPrice}`;
+  initPayPal();
+}
+function hideAllSteps() {
+  ['step-1','step-location','step-2','step-3','step-success'].forEach(id => document.getElementById(id).style.display = 'none');
+}
+
+function selectTier(tier, price) {
+  selectedTier = tier;
+  selectedPrice = price;
+  document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById(`tier-${tier}`).classList.add('selected');
+  document.getElementById('btn-next-1').disabled = false;
+  resetLocationSelection();
+}
+
+// ── LOCATION PICKER ──
+function tierBlockSize(tier) {
+  if (tier === 'standard') return 2;
+  if (tier === 'premium') return 3;
+  return 1; // basic, vip
+}
+
+function isLand(xFrac, yFrac) {
+  return CONTINENTS.some(([cx, cy, rx, ry]) => {
+    const dx = (xFrac - cx) / rx, dy = (yFrac - cy) / ry;
+    return dx * dx + dy * dy <= 1;
+  });
+}
+
+function resetLocationSelection() {
+  selectedGridRow = null;
+  selectedGridCol = null;
+  const btn = document.getElementById('btn-next-loc');
+  if (btn) btn.disabled = true;
+}
+
+function initLocationStep() {
+  document.getElementById('loc-stage-zoom').style.display = 'none';
+  document.getElementById('loc-stage-overview').style.display = 'block';
+  drawOverviewMap();
+}
+
+function drawOverviewMap() {
+  const canvas = document.getElementById('loc-overview-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.clientWidth;
+  const H = canvas.height = canvas.clientHeight;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(124,92,246,0.28)';
+  for (const [cx, cy, rx, ry] of CONTINENTS) {
+    ctx.beginPath();
+    ctx.ellipse(cx * W, cy * H, rx * W, ry * H, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  canvas.onclick = handleOverviewClick;
+}
+
+function handleOverviewClick(e) {
+  const canvas = document.getElementById('loc-overview-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const xFrac = (e.clientX - rect.left) / rect.width;
+  const yFrac = (e.clientY - rect.top) / rect.height;
+  if (!isLand(xFrac, yFrac)) {
+    return showToast('Pick a spot on land — that dot is ocean 🌊', 'error');
+  }
+  const centerCol = Math.floor(xFrac * GRID_COLS);
+  const centerRow = Math.floor(yFrac * GRID_ROWS);
+  enterZoom(centerRow, centerCol);
+}
+
+function backToOverview() {
+  resetLocationSelection();
+  document.getElementById('loc-stage-zoom').style.display = 'none';
+  document.getElementById('loc-stage-overview').style.display = 'block';
+}
+
+async function enterZoom(centerRow, centerCol) {
+  document.getElementById('loc-stage-overview').style.display = 'none';
+  document.getElementById('loc-stage-zoom').style.display = 'block';
+  document.getElementById('loc-region-sub').textContent = `around row ${centerRow}, col ${centerCol}`;
+
+  const minRow = Math.max(0, centerRow - ZOOM_SPAN / 2);
+  const maxRow = Math.min(GRID_ROWS - 1, centerRow + ZOOM_SPAN / 2);
+  const minCol = Math.max(0, centerCol - ZOOM_SPAN / 2);
+  const maxCol = Math.min(GRID_COLS - 1, centerCol + ZOOM_SPAN / 2);
+
+  const grid = document.getElementById('loc-grid');
+  grid.dataset.minRow = minRow; grid.dataset.minCol = minCol;
+  grid.dataset.maxRow = maxRow; grid.dataset.maxCol = maxCol;
+
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--muted);padding:20px;">Loading cells…</div>';
+  const occupied = await fetchOccupiedInRange(minRow - 3, maxRow + 3, minCol - 3, maxCol + 3);
+  grid.dataset.occupied = JSON.stringify(occupied);
+  renderZoomGrid(minRow, maxRow, minCol, maxCol, occupied);
+}
+
+async function fetchOccupiedInRange(minRow, maxRow, minCol, maxCol) {
+  const { data, error } = await sb.from('cells')
+    .select('grid_row,grid_col,block_rows,block_cols')
+    .eq('status', 'active')
+    .not('grid_row', 'is', null)
+    .gte('grid_row', minRow).lte('grid_row', maxRow)
+    .gte('grid_col', minCol).lte('grid_col', maxCol);
+  if (error) { showToast('Could not load the grid. Try again.', 'error'); return []; }
+  return data || [];
+}
+
+function footprintCells(row, col, size) {
+  const cells = [];
+  for (let r = row; r < row + size; r++) for (let c = col; c < col + size; c++) cells.push(`${r}_${c}`);
+  return cells;
+}
+
+function buildOccupiedSet(occupied) {
+  const set = new Set();
+  for (const cell of occupied) {
+    const size = Math.max(cell.block_rows || 1, cell.block_cols || 1);
+    for (const key of footprintCells(cell.grid_row, cell.grid_col, size)) set.add(key);
+  }
+  return set;
+}
+
+function renderZoomGrid(minRow, maxRow, minCol, maxCol, occupied) {
+  const grid = document.getElementById('loc-grid');
+  const cols = maxCol - minCol + 1;
+  grid.style.gridTemplateColumns = `repeat(${cols}, 26px)`;
+  const occupiedSet = buildOccupiedSet(occupied);
+  grid.innerHTML = '';
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const xFrac = (c + 0.5) / GRID_COLS, yFrac = (r + 0.5) / GRID_ROWS;
+      const land = isLand(xFrac, yFrac);
+      const taken = occupiedSet.has(`${r}_${c}`);
+      const div = document.createElement('div');
+      div.className = 'loc-cell ' + (!land ? 'ocean' : taken ? 'taken' : 'land');
+      div.title = !land ? 'Ocean' : taken ? 'Already taken' : `Row ${r}, Col ${c}`;
+      if (land && !taken) div.onclick = () => trySelectBlock(r, c, minRow, maxRow, minCol, maxCol, occupiedSet);
+      grid.appendChild(div);
+    }
+  }
+}
+
+function trySelectBlock(row, col, minRow, maxRow, minCol, maxCol, occupiedSet) {
+  const size = tierBlockSize(selectedTier);
+  const footprint = footprintCells(row, col, size);
+  for (const key of footprint) {
+    const [r, c] = key.split('_').map(Number);
+    if (r > maxRow || c > maxCol || !isLand((c + 0.5) / GRID_COLS, (r + 0.5) / GRID_ROWS) || occupiedSet.has(key)) {
+      return showToast(size > 1 ? `That ${size}×${size} block doesn't fully fit here — try another spot.` : 'That cell is not available.', 'error');
+    }
+  }
+  selectedGridRow = row;
+  selectedGridCol = col;
+  selectedBlockSize = size;
+  document.querySelectorAll('.loc-cell').forEach(el => el.classList.remove('selected'));
+  const cellEls = grid_cellElements(minRow, minCol, maxCol);
+  for (const key of footprint) {
+    const [r, c] = key.split('_').map(Number);
+    const el = cellEls[`${r}_${c}`];
+    if (el) el.classList.add('selected');
+  }
+  const bar = document.getElementById('loc-selection-bar');
+  bar.classList.add('active');
+  document.getElementById('loc-selection-text').innerHTML =
+    `<strong>Spot selected</strong> — row ${row}, col ${col}${size > 1 ? ` (${size}×${size} block)` : ''}`;
+  document.getElementById('btn-next-loc').disabled = false;
+}
+
+function grid_cellElements(minRow, minCol, maxCol) {
+  const grid = document.getElementById('loc-grid');
+  const cols = maxCol - minCol + 1;
+  const map = {};
+  Array.from(grid.children).forEach((el, i) => {
+    const r = minRow + Math.floor(i / cols), c = minCol + (i % cols);
+    map[`${r}_${c}`] = el;
+  });
+  return map;
+}
+
+function updateCharCount(inputId, countId, max) {
+  document.getElementById(countId).textContent = document.getElementById(inputId).value.length;
+}
+
+// ── PHOTO UPLOAD ──
+async function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return showToast('File too large! Max 5MB.', 'error');
+
+  const preview = document.getElementById('upload-preview');
+  const area = document.getElementById('upload-area');
+
+  // Show preview immediately
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    area.classList.add('has-file');
+    area.querySelector('.upload-icon').textContent = '✅';
+    area.querySelector('.upload-text').innerHTML = `<strong>${file.name}</strong><br><span style="font-size:12px;color:var(--green)">Ready to upload</span>`;
+  };
+  reader.readAsDataURL(file);
+
+  // Upload to Supabase Storage
+  showToast('Uploading photo...', 'success');
+  const fileName = `${currentUser.id}/${Date.now()}_${file.name}`;
+  const { data, error } = await sb.storage.from('dream-photos').upload(fileName, file, { upsert: true });
+
+  if (error) {
+    showToast('Upload failed. Try URL instead.', 'error');
+    return;
+  }
+
+  const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
+  uploadedPhotoUrl = urlData.publicUrl;
+  showToast('✅ Photo uploaded!', 'success');
+
+  // Clear URL input
+  document.getElementById('dream-photo-url').value = '';
+}
+
+function handleUrlInput() {
+  // If URL is entered, clear file upload
+  const url = document.getElementById('dream-photo-url').value.trim();
+  if (url) {
+    uploadedPhotoUrl = null;
+    document.getElementById('upload-preview').style.display = 'none';
+    document.getElementById('upload-area').classList.remove('has-file');
+  }
+}
+
+function getPhotoUrl() {
+  if (uploadedPhotoUrl) return uploadedPhotoUrl;
+  const url = document.getElementById('dream-photo-url')?.value?.trim();
+  return url || null;
+}
+
+// ── PAYPAL ──
+async function testWithoutPayment() {
+  showToast('🧪 Creating test dream...', 'success');
+  await saveDream('TEST_' + Date.now());
+}
+
+function initPayPal() {
+  const container = document.getElementById('paypal-button-container');
+  container.innerHTML = '';
+  paypal.Buttons({
+    style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' },
+    createOrder: (data, actions) => actions.order.create({
+      purchase_units: [{ amount: { value: selectedPrice.toString(), currency_code: 'EUR' }, description: `Dream Grid — ${selectedTier} tier` }]
+    }),
+    onApprove: async (data, actions) => {
+      const order = await actions.order.capture();
+      showToast('✓ Payment successful!', 'success');
+      await saveDream(order.id, true);
+    },
+    onError: () => showToast('Payment failed. Please try again.', 'error')
+  }).render('#paypal-button-container');
+}
+
+// ── SAVE DREAM ──
+async function saveDream(paymentId, redirectToSuccess = false) {
+  const title = document.getElementById('dream-title').value.trim();
+  const desc = document.getElementById('dream-desc').value.trim();
+  const photoUrl = getPhotoUrl();
+  if (selectedGridRow === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
+  const cellNum = Math.floor(Math.random() * 10000) + 1;
+
+  const { data: cell, error: cellError } = await sb.from('cells').insert({
+    cell_number: cellNum, user_id: currentUser.id,
+    status: 'active', tier: selectedTier,
+    price: selectedPrice, purchased_at: new Date().toISOString(),
+    grid_row: selectedGridRow, grid_col: selectedGridCol,
+    block_rows: selectedBlockSize, block_cols: selectedBlockSize,
+  }).select().single();
+
+  if (cellError) { showToast('Error saving. Contact support.', 'error'); return; }
+
+  const { data: dream, error: dreamError } = await sb.from('dreams').insert({
+    user_id: currentUser.id, cell_id: cell.id,
+    title, description: desc, photo_url: photoUrl, status: 'active',
+  }).select().single();
+
+  if (dreamError) { showToast('Error saving dream. Contact support.', 'error'); return; }
+
+  createdDreamId = dream.id;
+  localStorage.setItem('last_dream_id', dream.id);
+
+  if (redirectToSuccess) {
+    window.location.href = `/success?dream_id=${dream.id}`;
+  } else {
+    showSuccess(dream.id);
+  }
+}
+
+function showSuccess(dreamId) {
+  hideAllSteps();
+  document.getElementById('step-success').style.display = 'block';
+  const url = `${window.location.origin}/dream/${dreamId}`;
+  document.getElementById('dream-url-box').textContent = url;
+  document.getElementById('dream-url-box').dataset.url = url;
+}
+
+function copyDreamUrl() {
+  const url = document.getElementById('dream-url-box').dataset.url;
+  navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied!', 'success'));
+}
+
+async function markFulfilled(dreamId) {
+  const { error } = await sb.from('dreams').update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() }).eq('id', dreamId);
+  if (!error) { showToast('🎉 Dream fulfilled!', 'success'); await loadUserData(currentUser); }
+}
+
+function shareDream(dreamId) {
+  const url = `${window.location.origin}/dream/${dreamId}`;
+  navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied!', 'success'));
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  window.location.href = 'index';
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+init();
+sb.auth.onAuthStateChange((_e, session) => { if (!session) window.location.href = 'index'; });
+</script>
+</body>
+</html>
