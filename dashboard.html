@@ -183,6 +183,18 @@
   .btn-loc-back { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s; }
   .btn-loc-back:hover { color: #fff; border-color: rgba(167,139,250,0.4); }
   .loc-zoom-wrap { border-radius: var(--radius); border: 1px solid var(--border); background: #0a0c1e; padding: 10px; display: flex; justify-content: center; }
+  .loc-zoom-body { display: flex; align-items: center; gap: 14px; }
+  .loc-zoom-body .loc-zoom-wrap { flex: 1; }
+  .loc-pad { display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 4px; flex-shrink: 0; }
+  .btn-pan { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .btn-pan:hover { background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.4); }
+  .btn-pan-up { grid-column: 2; grid-row: 1; }
+  .btn-pan-left { grid-column: 1; grid-row: 2; }
+  .btn-pan-right { grid-column: 3; grid-row: 2; }
+  .btn-pan-down { grid-column: 2; grid-row: 3; }
+  .btn-pan-in { grid-column: 1; grid-row: 3; color: #a78bfa; font-weight: 700; }
+  .btn-pan-out { grid-column: 3; grid-row: 3; color: #a78bfa; font-weight: 700; }
+  .loc-cell.target { box-shadow: 0 0 0 2px #f59e0b, 0 0 10px rgba(245,158,11,0.7); }
   .loc-grid { display: grid; gap: 3px; }
   .loc-cell { width: 26px; height: 26px; border-radius: 5px; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; border: 1px solid transparent; }
   .loc-cell.land { background: rgba(124,92,246,0.16); }
@@ -361,14 +373,25 @@
           </div>
           <button class="btn-loc-back" onclick="backToOverview()">← Choose another region</button>
         </div>
-        <div class="loc-zoom-wrap">
-          <div class="loc-grid" id="loc-grid"></div>
+        <div class="loc-zoom-body">
+          <div class="loc-zoom-wrap">
+            <div class="loc-grid" id="loc-grid"></div>
+          </div>
+          <div class="loc-pad">
+            <button class="btn-pan btn-pan-up" onclick="panZoom(-1,0)" title="Pan up">↑</button>
+            <button class="btn-pan btn-pan-left" onclick="panZoom(0,-1)" title="Pan left">←</button>
+            <button class="btn-pan btn-pan-right" onclick="panZoom(0,1)" title="Pan right">→</button>
+            <button class="btn-pan btn-pan-down" onclick="panZoom(1,0)" title="Pan down">↓</button>
+            <button class="btn-pan btn-pan-in" onclick="zoomInOut(-4)" title="Zoom in">＋</button>
+            <button class="btn-pan btn-pan-out" onclick="zoomInOut(4)" title="Zoom out">－</button>
+          </div>
         </div>
         <div class="loc-legend">
           <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(124,92,246,0.16);"></span>Free</div>
           <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(248,113,113,0.18);"></span>Taken</div>
           <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(255,255,255,0.02);"></span>Ocean</div>
           <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:var(--grad-btn);"></span>Your selection</div>
+          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:#0a0c1e;box-shadow:0 0 0 2px #f59e0b;"></span>Search result</div>
         </div>
         <div class="loc-selection-bar" id="loc-selection-bar">
           <span class="loc-selection-text" id="loc-selection-text">No cell selected yet — click a free spot above.</span>
@@ -473,7 +496,13 @@ let selectedGridCol = null;
 let selectedBlockSize = 1;
 const GRID_COLS = 36000; // ~0.01° per cell (~1km at the equator) — practically unlimited unique spots
 const GRID_ROWS = 18000;
-const ZOOM_SPAN = 12; // cells shown per side when zoomed in
+let currentSpan = 12; // cells shown per side when zoomed in (changes with zoom in/out)
+let zoomCenterRow = null, zoomCenterCol = null; // current center of the zoomed view
+let targetRow = null, targetCol = null; // marks a search result, until the person picks a cell themselves
+
+function gridToLatLon(row, col) {
+  return { lat: 90 - (row / GRID_ROWS) * 180, lon: (col / GRID_COLS) * 360 - 180 };
+}
 
 // ── Real world coastlines (Natural Earth via world-atlas, public domain) ──
 // Rough ellipse shapes as a safety net if the map data fails to load (e.g. offline)
@@ -764,7 +793,7 @@ async function searchLocation() {
     }
     const centerCol = Math.floor(xFrac * GRID_COLS);
     const centerRow = Math.floor(yFrac * GRID_ROWS);
-    enterZoom(centerRow, centerCol);
+    enterZoom(centerRow, centerCol, true);
   } catch (e) {
     showToast('Search failed — check your connection and try again', 'error');
   } finally {
@@ -783,7 +812,7 @@ function handleOverviewClick(e) {
   }
   const centerCol = Math.floor(xFrac * GRID_COLS);
   const centerRow = Math.floor(yFrac * GRID_ROWS);
-  enterZoom(centerRow, centerCol);
+  enterZoom(centerRow, centerCol, false);
 }
 
 function backToOverview() {
@@ -792,15 +821,37 @@ function backToOverview() {
   document.getElementById('loc-stage-overview').style.display = 'block';
 }
 
-async function enterZoom(centerRow, centerCol) {
+async function enterZoom(centerRow, centerCol, markTarget) {
   document.getElementById('loc-stage-overview').style.display = 'none';
   document.getElementById('loc-stage-zoom').style.display = 'block';
-  document.getElementById('loc-region-sub').textContent = `around row ${centerRow}, col ${centerCol}`;
+  zoomCenterRow = centerRow;
+  zoomCenterCol = centerCol;
+  if (markTarget) { targetRow = centerRow; targetCol = centerCol; }
+  else { targetRow = null; targetCol = null; }
+  await refreshZoomView();
+}
 
-  const minRow = Math.max(0, centerRow - ZOOM_SPAN / 2);
-  const maxRow = Math.min(GRID_ROWS - 1, centerRow + ZOOM_SPAN / 2);
-  const minCol = Math.max(0, centerCol - ZOOM_SPAN / 2);
-  const maxCol = Math.min(GRID_COLS - 1, centerCol + ZOOM_SPAN / 2);
+function panZoom(dRow, dCol) {
+  const step = Math.max(1, Math.round(currentSpan / 2));
+  zoomCenterRow = Math.max(0, Math.min(GRID_ROWS - 1, zoomCenterRow + dRow * step));
+  zoomCenterCol = Math.max(0, Math.min(GRID_COLS - 1, zoomCenterCol + dCol * step));
+  refreshZoomView();
+}
+
+function zoomInOut(delta) {
+  currentSpan = Math.max(6, Math.min(30, currentSpan + delta));
+  refreshZoomView();
+}
+
+async function refreshZoomView() {
+  const half = currentSpan / 2;
+  const minRow = Math.max(0, Math.round(zoomCenterRow - half));
+  const maxRow = Math.min(GRID_ROWS - 1, Math.round(zoomCenterRow + half));
+  const minCol = Math.max(0, Math.round(zoomCenterCol - half));
+  const maxCol = Math.min(GRID_COLS - 1, Math.round(zoomCenterCol + half));
+
+  const { lat, lon } = gridToLatLon(zoomCenterRow, zoomCenterCol);
+  document.getElementById('loc-region-sub').textContent = `≈ ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`;
 
   const grid = document.getElementById('loc-grid');
   grid.dataset.minRow = minRow; grid.dataset.minCol = minCol;
@@ -851,6 +902,7 @@ function renderZoomGrid(minRow, maxRow, minCol, maxCol, occupied) {
       const taken = occupiedSet.has(`${r}_${c}`);
       const div = document.createElement('div');
       div.className = 'loc-cell ' + (!land ? 'ocean' : taken ? 'taken' : 'land');
+      if (targetRow === r && targetCol === c) div.classList.add('target');
       div.title = !land ? 'Ocean' : taken ? 'Already taken' : `Row ${r}, Col ${c}`;
       if (land && !taken) div.onclick = () => trySelectBlock(r, c, minRow, maxRow, minCol, maxCol, occupiedSet);
       grid.appendChild(div);
