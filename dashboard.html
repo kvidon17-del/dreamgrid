@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <script src="https://www.paypal.com/sdk/js?client-id=AXdTcQ4rHmU9FJNYicH7_LRkYKLFd8Npr9EuRXxWq9trt01o7ABujwWL01OmpVoC-YEQ0ZdI3ZlKvpGV&currency=EUR"></script>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -463,8 +464,68 @@ let selectedBlockSize = 1;
 const GRID_COLS = 240;
 const GRID_ROWS = 120;
 const ZOOM_SPAN = 12; // cells shown per side when zoomed in
-// Same landmass shapes used for the decorative map on index.html, so cells line up with visible land
-const CONTINENTS = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
+
+// ── Real world coastlines (Natural Earth via world-atlas, public domain) ──
+// Rough ellipse shapes as a safety net if the map data fails to load (e.g. offline)
+const FALLBACK_ELLIPSES = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
+function ellipseToRing([cx, cy, rx, ry]) {
+  const ring = [];
+  for (let i = 0; i <= 32; i++) {
+    const t = (i / 32) * Math.PI * 2;
+    ring.push([cx + Math.cos(t) * rx, cy + Math.sin(t) * ry]);
+  }
+  return ring;
+}
+
+let landRings = null;       // array of rings, each ring = array of [xFrac, yFrac] in 0..1
+let landPath2D = null;      // Path2D of landRings in 0..1 space, used for hit-testing
+const hitTestCtx = document.createElement('canvas').getContext('2d');
+
+function setLandData(rings) {
+  landRings = rings;
+  const path = new Path2D();
+  for (const ring of rings) {
+    ring.forEach(([x, y], i) => { if (i === 0) path.moveTo(x, y); else path.lineTo(x, y); });
+    path.closePath();
+  }
+  landPath2D = path;
+}
+
+function buildLandPathAtSize(W, H) {
+  const path = new Path2D();
+  for (const ring of landRings) {
+    ring.forEach(([x, y], i) => { if (i === 0) path.moveTo(x * W, y * H); else path.lineTo(x * W, y * H); });
+    path.closePath();
+  }
+  return path;
+}
+
+async function loadLandData() {
+  try {
+    const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
+    const topology = await res.json();
+    const geo = topojson.feature(topology, topology.objects.land);
+    const polygons = geo.type === 'MultiPolygon' ? geo.coordinates : [geo.coordinates];
+    const rings = [];
+    for (const polygon of polygons) {
+      for (const ring of polygon) {
+        rings.push(ring.map(([lon, lat]) => [(lon + 180) / 360, (90 - lat) / 180]));
+      }
+    }
+    setLandData(rings);
+  } catch (e) {
+    console.error('World map data failed to load, using fallback shapes', e);
+    setLandData(FALLBACK_ELLIPSES.map(ellipseToRing));
+  }
+  const locStep = document.getElementById('step-location');
+  if (locStep && locStep.style.display !== 'none') drawOverviewMap();
+}
+loadLandData();
+
+function isLand(xFrac, yFrac) {
+  if (!landPath2D) return false; // map still loading — nothing selectable yet
+  return hitTestCtx.isPointInPath(landPath2D, xFrac, yFrac, 'evenodd');
+}
 
 async function init() {
   const { data: { user } } = await sb.auth.getUser();
@@ -614,13 +675,6 @@ function tierBlockSize(tier) {
   return 1; // basic, vip
 }
 
-function isLand(xFrac, yFrac) {
-  return CONTINENTS.some(([cx, cy, rx, ry]) => {
-    const dx = (xFrac - cx) / rx, dy = (yFrac - cy) / ry;
-    return dx * dx + dy * dy <= 1;
-  });
-}
-
 function resetLocationSelection() {
   selectedGridRow = null;
   selectedGridCol = null;
@@ -640,12 +694,19 @@ function drawOverviewMap() {
   const W = canvas.width = canvas.clientWidth;
   const H = canvas.height = canvas.clientHeight;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = 'rgba(124,92,246,0.28)';
-  for (const [cx, cy, rx, ry] of CONTINENTS) {
-    ctx.beginPath();
-    ctx.ellipse(cx * W, cy * H, rx * W, ry * H, 0, 0, Math.PI * 2);
-    ctx.fill();
+  const msg = document.getElementById('loc-overview-msg');
+  if (!landRings) {
+    if (msg) msg.textContent = '⏳ Loading world map…';
+    canvas.onclick = null;
+    return;
   }
+  if (msg) msg.textContent = '✦ Click on land to zoom in';
+  const path = buildLandPathAtSize(W, H);
+  ctx.fillStyle = 'rgba(124,92,246,0.30)';
+  ctx.fill(path, 'evenodd');
+  ctx.strokeStyle = 'rgba(167,139,250,0.55)';
+  ctx.lineWidth = 1;
+  ctx.stroke(path);
   canvas.onclick = handleOverviewClick;
 }
 
