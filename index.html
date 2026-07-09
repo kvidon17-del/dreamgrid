@@ -554,12 +554,10 @@ async function signOut() {
       attempts++;
       const x = Math.random(), y = Math.random();
       if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
-      const isDream = Math.random() < 0.10;
       dots.push({
         x, y,
-        size: isDream ? Math.random() * 3 + 2 : Math.random() * 1.0 + 0.2,
-        baseColor: isDream ? dreamColors[Math.floor(Math.random() * dreamColors.length)] : null,
-        isDream, phase: Math.random() * Math.PI * 2, speed: 0.025 + Math.random() * 0.04,
+        size: Math.random() * 1.0 + 0.2,
+        isDream: false, phase: Math.random() * Math.PI * 2, speed: 0.025 + Math.random() * 0.04,
       });
     }
   }
@@ -606,6 +604,56 @@ async function signOut() {
     generateDots(landPath2D, hitCtx, 1400);
   }
   loadMapDots();
+
+  // Real dreams from Supabase — these are the only glowing points on the map
+  const TIER_DOT_SIZE = { basic: 2, standard: 2.8, premium: 3.6, vip: 5 };
+  async function loadRealDreams() {
+    const { data, error } = await sb.from('cells')
+      .select('lat,lng,tier,dreams(id,title)')
+      .eq('status', 'active')
+      .not('lat', 'is', null)
+      .limit(3000);
+    if (error || !data) return;
+    for (const cell of data) {
+      const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
+      dots.push({
+        x: (cell.lng + 180) / 360,
+        y: (90 - cell.lat) / 180,
+        size: TIER_DOT_SIZE[cell.tier] || 2,
+        baseColor: dreamColors[Math.floor(Math.random() * dreamColors.length)],
+        isDream: true,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.025 + Math.random() * 0.04,
+        dreamId: dream ? dream.id : null,
+      });
+    }
+  }
+  loadRealDreams();
+
+  // Click a glowing dream dot to open it
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left, clickY = e.clientY - rect.top;
+    let closest = null, closestDist = 14;
+    for (const d of dots) {
+      if (!d.dreamId) continue;
+      const px = d.x * W, py = d.y * H + H * 0.04;
+      const dist = Math.hypot(px - clickX, py - clickY);
+      if (dist < closestDist) { closestDist = dist; closest = d; }
+    }
+    if (closest) window.open(`/dream/${closest.dreamId}`, '_blank');
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hovering = false;
+    for (const d of dots) {
+      if (!d.dreamId) continue;
+      const px = d.x * W, py = d.y * H + H * 0.04;
+      if (Math.hypot(px - mx, py - my) < 14) { hovering = true; break; }
+    }
+    canvas.style.cursor = hovering ? 'pointer' : 'default';
+  });
 
   let t=0;
   function draw() {
