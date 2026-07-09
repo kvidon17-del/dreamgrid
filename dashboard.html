@@ -439,6 +439,8 @@ let searchResultMarker = null;  // small reference dot where a search landed
 
 const TIER_ICONS = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
 const TIER_RADIUS_M = { basic: 300, standard: 600, premium: 1000, vip: 1600 }; // purely decorative, doesn't block anyone else
+// Mapbox public token — safe to expose in client-side code, this is how Mapbox tokens are meant to be used
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiZHJlYW1ncmlkIiwiYSI6ImNtcmQ4dzlzbDAyYXEzMXNoODY1cjA5a2kifQ.WrI3v0W2PmJNgKk7iN-r3g';
 
 async function init() {
   const { data: { user } } = await sb.auth.getUser();
@@ -586,9 +588,10 @@ function resetLocationSelection() {
 function initLocationStep() {
   if (!locMap) {
     locMap = L.map('loc-map', { worldCopyJump: true }).setView([20, 10], 2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
+      attribution: '&copy; Mapbox &copy; OpenStreetMap',
+      tileSize: 512,
+      zoomOffset: -1,
       maxZoom: 19,
     }).addTo(locMap);
     locMap.on('click', (e) => placePin(e.latlng.lat, e.latlng.lng));
