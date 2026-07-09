@@ -470,7 +470,7 @@ function renderDream(dream) {
   document.getElementById('dream-description').textContent = dream.description || '';
 
   // Cell info
-  const tierLabels = { basic: 'Basic Dream · 1 cell', standard: 'Big Dream · 4 cells', premium: 'Dream of the Year · 9 cells', vip: 'Dream Legend · VIP' };
+  const tierLabels = { basic: 'My Dream', standard: 'Big Dream', premium: 'Dream of the Year', vip: 'Dream Legend · VIP' };
   const tierColors = { basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
   const tier = dream.cells?.tier || 'basic';
   document.getElementById('cell-num').textContent = `#${dream.cell_id}`;

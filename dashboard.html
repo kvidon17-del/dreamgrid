@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.paypal.com/sdk/js?client-id=AXdTcQ4rHmU9FJNYicH7_LRkYKLFd8Npr9EuRXxWq9trt01o7ABujwWL01OmpVoC-YEQ0ZdI3ZlKvpGV&currency=EUR"></script>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -174,37 +175,8 @@
   .btn-loc-search { padding: 11px 18px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
   .btn-loc-search:hover { opacity: 0.88; }
   .btn-loc-search:disabled { opacity: 0.5; cursor: not-allowed; }
-  .loc-overview-wrap { position: relative; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: #0a0c1e; aspect-ratio: 2/1; cursor: crosshair; }
-  #loc-overview-canvas { width: 100%; height: 100%; display: block; }
-  .loc-overview-msg { position: absolute; left: 12px; bottom: 12px; font-size: 11px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 20px; pointer-events: none; }
-  .loc-zoom-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .loc-region-label { font-size: 13px; color: #fff; font-weight: 600; }
-  .loc-region-sub { font-size: 11px; color: var(--muted); }
-  .btn-loc-back { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s; }
-  .btn-loc-back:hover { color: #fff; border-color: rgba(167,139,250,0.4); }
-  .loc-zoom-wrap { border-radius: var(--radius); border: 1px solid var(--border); background: #0a0c1e; padding: 10px; display: flex; justify-content: center; }
-  .loc-zoom-body { display: flex; align-items: center; gap: 14px; }
-  .loc-zoom-body .loc-zoom-wrap { flex: 1; }
-  .loc-pad { display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 4px; flex-shrink: 0; }
-  .btn-pan { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-  .btn-pan:hover { background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.4); }
-  .btn-pan-up { grid-column: 2; grid-row: 1; }
-  .btn-pan-left { grid-column: 1; grid-row: 2; }
-  .btn-pan-right { grid-column: 3; grid-row: 2; }
-  .btn-pan-down { grid-column: 2; grid-row: 3; }
-  .btn-pan-in { grid-column: 1; grid-row: 3; color: #a78bfa; font-weight: 700; }
-  .btn-pan-out { grid-column: 3; grid-row: 3; color: #a78bfa; font-weight: 700; }
-  .loc-cell.target { box-shadow: 0 0 0 2px #f59e0b, 0 0 10px rgba(245,158,11,0.7); }
-  .loc-grid { display: grid; gap: 3px; }
-  .loc-cell { width: 26px; height: 26px; border-radius: 5px; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; border: 1px solid transparent; }
-  .loc-cell.land { background: rgba(124,92,246,0.16); }
-  .loc-cell.land:hover { transform: scale(1.12); border-color: rgba(167,139,250,0.6); }
-  .loc-cell.ocean { background: rgba(255,255,255,0.02); cursor: not-allowed; }
-  .loc-cell.taken { background: rgba(248,113,113,0.18); cursor: not-allowed; }
-  .loc-cell.selected { background: var(--grad-btn); box-shadow: 0 0 0 2px #fff, 0 4px 14px rgba(124,92,246,0.5); }
-  .loc-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 14px 0; font-size: 11px; color: var(--muted); }
-  .loc-legend-item { display: flex; align-items: center; gap: 6px; }
-  .loc-legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+  #loc-map { width: 100%; height: 340px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); margin-bottom: 14px; background: #0a0c1e; }
+  .loc-pin-icon { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); background: none; border: none; }
   .loc-selection-bar { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 8px; font-size: 13px; }
   .loc-selection-bar.active { border-color: rgba(167,139,250,0.4); background: rgba(99,60,220,0.1); }
   .loc-selection-text { color: var(--muted); }
@@ -321,28 +293,28 @@
     <!-- STEP 1: TIER -->
     <div id="step-1">
       <div class="modal-title">Choose your tier</div>
-      <div class="modal-sub">Select the size of your dream on the map.</div>
+      <div class="modal-sub">Choose what your dream can include — and how it stands out on the map.</div>
       <div class="tier-grid">
         <div class="tier-card" id="tier-basic" onclick="selectTier('basic',3)">
           <div class="t-name">My Dream</div>
           <div class="t-price">€3</div>
-          <div class="t-cells">1 cell · text only</div>
+          <div class="t-cells">✨ Text only</div>
         </div>
         <div class="tier-card" id="tier-standard" onclick="selectTier('standard',10)">
           <div class="t-name">Big Dream</div>
           <div class="t-price">€10</div>
-          <div class="t-cells">4 cells · + photo</div>
+          <div class="t-cells">💫 + Photo · brighter pin</div>
         </div>
         <div class="tier-card popular-tier" id="tier-premium" onclick="selectTier('premium',25)">
           <div class="tier-badge">✦ Popular</div>
           <div class="t-name">Dream of the Year</div>
           <div class="t-price">€25</div>
-          <div class="t-cells">9 cells · photo + video</div>
+          <div class="t-cells">⭐ + Photo + video · featured in Explore</div>
         </div>
         <div class="tier-card" id="tier-vip" onclick="selectTier('vip',100)">
           <div class="t-name">Dream Legend</div>
           <div class="t-price">€100</div>
-          <div class="t-cells">Dedicated page · VIP</div>
+          <div class="t-cells">👑 Dedicated page · top of Explore</div>
         </div>
       </div>
       <button class="btn-next" id="btn-next-1" onclick="goToLocationStep()" disabled>Continue →</button>
@@ -353,49 +325,16 @@
       <div class="modal-title">Choose your spot</div>
       <div class="step-label">Step <span>2 of 4</span> — Place your dream on the world map</div>
 
-      <div id="loc-stage-overview">
-        <p class="loc-hint">Search for a place, or click anywhere on the land to zoom in and pick your exact spot<span id="loc-block-hint"></span>. This can be your real city, or the place you dream of — it's up to you.</p>
-        <div class="loc-search-row">
-          <input type="text" id="loc-search-input" placeholder="e.g. Soesterberg, Netherlands" onkeydown="if(event.key==='Enter'){event.preventDefault();searchLocation();}">
-          <button class="btn-loc-search" id="btn-loc-search" onclick="searchLocation()">🔍 Find</button>
-        </div>
-        <div class="loc-overview-wrap">
-          <canvas id="loc-overview-canvas"></canvas>
-          <div class="loc-overview-msg">✦ Click on land to zoom in</div>
-        </div>
+      <p class="loc-hint">Search for a place, or drag and zoom the map yourself — then tap to drop your pin. This can be your real city, or the place you dream of — it's up to you.</p>
+      <div class="loc-search-row">
+        <input type="text" id="loc-search-input" placeholder="e.g. Soesterberg, Netherlands" onkeydown="if(event.key==='Enter'){event.preventDefault();searchLocation();}">
+        <button class="btn-loc-search" id="btn-loc-search" onclick="searchLocation()">🔍 Find</button>
       </div>
 
-      <div id="loc-stage-zoom" style="display:none;">
-        <div class="loc-zoom-head">
-          <div>
-            <div class="loc-region-label">Zoomed-in view</div>
-            <div class="loc-region-sub" id="loc-region-sub"></div>
-          </div>
-          <button class="btn-loc-back" onclick="backToOverview()">← Choose another region</button>
-        </div>
-        <div class="loc-zoom-body">
-          <div class="loc-zoom-wrap">
-            <div class="loc-grid" id="loc-grid"></div>
-          </div>
-          <div class="loc-pad">
-            <button class="btn-pan btn-pan-up" onclick="panZoom(-1,0)" title="Pan up">↑</button>
-            <button class="btn-pan btn-pan-left" onclick="panZoom(0,-1)" title="Pan left">←</button>
-            <button class="btn-pan btn-pan-right" onclick="panZoom(0,1)" title="Pan right">→</button>
-            <button class="btn-pan btn-pan-down" onclick="panZoom(1,0)" title="Pan down">↓</button>
-            <button class="btn-pan btn-pan-in" onclick="zoomInOut(-4)" title="Zoom in">＋</button>
-            <button class="btn-pan btn-pan-out" onclick="zoomInOut(4)" title="Zoom out">－</button>
-          </div>
-        </div>
-        <div class="loc-legend">
-          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(124,92,246,0.16);"></span>Free</div>
-          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(248,113,113,0.18);"></span>Taken</div>
-          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:rgba(255,255,255,0.02);"></span>Ocean</div>
-          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:var(--grad-btn);"></span>Your selection</div>
-          <div class="loc-legend-item"><span class="loc-legend-swatch" style="background:#0a0c1e;box-shadow:0 0 0 2px #f59e0b;"></span>Search result</div>
-        </div>
-        <div class="loc-selection-bar" id="loc-selection-bar">
-          <span class="loc-selection-text" id="loc-selection-text">No cell selected yet — click a free spot above.</span>
-        </div>
+      <div id="loc-map"></div>
+
+      <div class="loc-selection-bar" id="loc-selection-bar">
+        <span class="loc-selection-text" id="loc-selection-text">No spot selected yet — search above or tap the map.</span>
       </div>
 
       <button class="btn-next" id="btn-next-loc" onclick="goToStep2()" disabled>Continue →</button>
@@ -490,100 +429,16 @@ let selectedPrice = 0;
 let createdDreamId = null;
 let uploadedPhotoUrl = null;
 
-// ── Grid location state ──
-let selectedGridRow = null;
-let selectedGridCol = null;
-let selectedBlockSize = 1;
-const GRID_COLS = 36000; // ~0.01° per cell (~1km at the equator) — practically unlimited unique spots
-const GRID_ROWS = 18000;
-let currentSpan = 12; // cells shown per side when zoomed in (changes with zoom in/out)
-let zoomCenterRow = null, zoomCenterCol = null; // current center of the zoomed view
-let targetRow = null, targetCol = null; // marks a search result, until the person picks a cell themselves
+// ── Location picker state (real interactive map) ──
+let selectedLat = null;
+let selectedLng = null;
+let locMap = null;              // Leaflet map instance
+let userMarker = null;          // the pin the dreamer placed
+let userCircle = null;          // decorative "prominence" circle, sized by tier
+let searchResultMarker = null;  // small reference dot where a search landed
 
-function gridToLatLon(row, col) {
-  return { lat: 90 - (row / GRID_ROWS) * 180, lon: (col / GRID_COLS) * 360 - 180 };
-}
-
-// ── Real world coastlines (Natural Earth via world-atlas, public domain) ──
-// Rough ellipse shapes as a safety net if the map data fails to load (e.g. offline)
-const FALLBACK_ELLIPSES = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
-function ellipseToRing([cx, cy, rx, ry]) {
-  const ring = [];
-  for (let i = 0; i <= 32; i++) {
-    const t = (i / 32) * Math.PI * 2;
-    ring.push([cx + Math.cos(t) * rx, cy + Math.sin(t) * ry]);
-  }
-  return ring;
-}
-
-let landRings = null;       // array of rings, each ring = array of [xFrac, yFrac] in 0..1
-let landPath2D = null;      // Path2D of landRings in 0..1 space, used for hit-testing
-const hitTestCtx = document.createElement('canvas').getContext('2d');
-
-// Draws a ring, starting a new sub-path whenever a point jumps across the map seam
-// (e.g. land near the 180° meridian), instead of drawing a stray line across the whole map.
-function addRingToPath(path, ring, W, H) {
-  let prevX = null;
-  ring.forEach(([x, y], i) => {
-    const px = x * W, py = y * H;
-    if (i === 0 || prevX === null || Math.abs(x - prevX) > 0.5) path.moveTo(px, py);
-    else path.lineTo(px, py);
-    prevX = x;
-  });
-  path.closePath();
-}
-
-function setLandData(rings) {
-  landRings = rings;
-  const path = new Path2D();
-  for (const ring of rings) addRingToPath(path, ring, 1, 1);
-  landPath2D = path;
-}
-
-function buildLandPathAtSize(W, H) {
-  const path = new Path2D();
-  for (const ring of landRings) addRingToPath(path, ring, W, H);
-  return path;
-}
-
-function extractPolygons(geo) {
-  const feats = geo.type === 'FeatureCollection' ? geo.features : [geo];
-  const polygons = [];
-  for (const f of feats) {
-    const g = f.geometry || f;
-    if (!g) continue;
-    if (g.type === 'MultiPolygon') polygons.push(...g.coordinates);
-    else if (g.type === 'Polygon') polygons.push(g.coordinates);
-  }
-  return polygons;
-}
-
-async function loadLandData() {
-  try {
-    const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
-    const topology = await res.json();
-    const geo = topojson.feature(topology, topology.objects.land);
-    const polygons = extractPolygons(geo);
-    const rings = [];
-    for (const polygon of polygons) {
-      for (const ring of polygon) {
-        rings.push(ring.map(([lon, lat]) => [(lon + 180) / 360, (90 - lat) / 180]));
-      }
-    }
-    setLandData(rings);
-  } catch (e) {
-    console.error('World map data failed to load, using fallback shapes', e);
-    setLandData(FALLBACK_ELLIPSES.map(ellipseToRing));
-  }
-  const locStep = document.getElementById('step-location');
-  if (locStep && locStep.style.display !== 'none') drawOverviewMap();
-}
-loadLandData();
-
-function isLand(xFrac, yFrac) {
-  if (!landPath2D) return false; // map still loading — nothing selectable yet
-  return hitTestCtx.isPointInPath(landPath2D, xFrac, yFrac, 'evenodd');
-}
+const TIER_ICONS = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const TIER_RADIUS_M = { basic: 300, standard: 600, premium: 1000, vip: 1600 }; // purely decorative, doesn't block anyone else
 
 async function init() {
   const { data: { user } } = await sb.auth.getUser();
@@ -677,25 +532,10 @@ function goToLocationStep() {
   hideAllSteps();
   document.getElementById('step-location').style.display = 'block';
   updateStepBars(2);
-  const size = tierBlockSize(selectedTier);
-  document.getElementById('loc-block-hint').textContent = size > 1 ? ` (a ${size}×${size} block for your tier)` : '';
   initLocationStep();
 }
-async function goToStep2() {
-  if (selectedGridRow === null) return showToast('Please pick a spot on the map first!', 'error');
-
-  // Re-check right before moving on, in case someone else claimed it in the meantime
-  const size = selectedBlockSize;
-  const occupied = await fetchOccupiedInRange(selectedGridRow - 3, selectedGridRow + size + 3, selectedGridCol - 3, selectedGridCol + size + 3);
-  const occupiedSet = buildOccupiedSet(occupied);
-  const stillFree = footprintCells(selectedGridRow, selectedGridCol, size).every(key => !occupiedSet.has(key));
-  if (!stillFree) {
-    showToast('Oh no — someone just claimed that spot. Please pick another.', 'error');
-    const row = selectedGridRow, col = selectedGridCol;
-    resetLocationSelection();
-    return enterZoom(row, col);
-  }
-
+function goToStep2() {
+  if (selectedLat === null) return showToast('Please pick a spot on the map first!', 'error');
   hideAllSteps();
   document.getElementById('step-2').style.display = 'block';
   updateStepBars(3);
@@ -726,46 +566,62 @@ function selectTier(tier, price) {
   resetLocationSelection();
 }
 
-// ── LOCATION PICKER ──
-function tierBlockSize(tier) {
-  if (tier === 'standard') return 2;
-  if (tier === 'premium') return 3;
-  return 1; // basic, vip
-}
-
+// ── LOCATION PICKER (real interactive map via Leaflet) ──
 function resetLocationSelection() {
-  selectedGridRow = null;
-  selectedGridCol = null;
+  selectedLat = null;
+  selectedLng = null;
+  if (locMap) {
+    if (userMarker) { locMap.removeLayer(userMarker); userMarker = null; }
+    if (userCircle) { locMap.removeLayer(userCircle); userCircle = null; }
+  }
   const btn = document.getElementById('btn-next-loc');
   if (btn) btn.disabled = true;
+  const bar = document.getElementById('loc-selection-bar');
+  if (bar) {
+    bar.classList.remove('active');
+    document.getElementById('loc-selection-text').textContent = 'No spot selected yet — search above or tap the map.';
+  }
 }
 
 function initLocationStep() {
-  document.getElementById('loc-stage-zoom').style.display = 'none';
-  document.getElementById('loc-stage-overview').style.display = 'block';
-  drawOverviewMap();
+  if (!locMap) {
+    locMap = L.map('loc-map', { worldCopyJump: true }).setView([20, 10], 2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(locMap);
+    locMap.on('click', (e) => placePin(e.latlng.lat, e.latlng.lng));
+  }
+  // The map div was hidden (display:none) until now, so Leaflet needs a nudge to size itself correctly
+  setTimeout(() => locMap.invalidateSize(), 50);
 }
 
-function drawOverviewMap() {
-  const canvas = document.getElementById('loc-overview-canvas');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width = canvas.clientWidth;
-  const H = canvas.height = canvas.clientHeight;
-  ctx.clearRect(0, 0, W, H);
-  const msg = document.getElementById('loc-overview-msg');
-  if (!landRings) {
-    if (msg) msg.textContent = '⏳ Loading world map…';
-    canvas.onclick = null;
-    return;
-  }
-  if (msg) msg.textContent = '✦ Click on land to zoom in';
-  const path = buildLandPathAtSize(W, H);
-  ctx.fillStyle = 'rgba(124,92,246,0.30)';
-  ctx.fill(path, 'evenodd');
-  ctx.strokeStyle = 'rgba(167,139,250,0.55)';
-  ctx.lineWidth = 1;
-  ctx.stroke(path);
-  canvas.onclick = handleOverviewClick;
+function tierPinIcon(tier) {
+  return L.divIcon({
+    className: 'loc-pin-icon',
+    html: `<div style="font-size:28px;line-height:1;">${TIER_ICONS[tier] || '✨'}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 26],
+  });
+}
+
+function placePin(lat, lng) {
+  selectedLat = lat;
+  selectedLng = lng;
+  if (userMarker) locMap.removeLayer(userMarker);
+  if (userCircle) locMap.removeLayer(userCircle);
+  const radius = TIER_RADIUS_M[selectedTier] || 300;
+  userCircle = L.circle([lat, lng], {
+    radius, color: '#a78bfa', weight: 1.5, fillColor: '#7c5cf6', fillOpacity: 0.15,
+  }).addTo(locMap);
+  userMarker = L.marker([lat, lng], { icon: tierPinIcon(selectedTier) }).addTo(locMap);
+
+  const bar = document.getElementById('loc-selection-bar');
+  bar.classList.add('active');
+  document.getElementById('loc-selection-text').innerHTML =
+    `<strong>Spot selected</strong> — ${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+  document.getElementById('btn-next-loc').disabled = false;
 }
 
 async function searchLocation() {
@@ -784,167 +640,20 @@ async function searchLocation() {
       showToast(`Couldn't find "${query}" — try a different spelling`, 'error');
       return;
     }
-    const { lat, lon } = results[0];
-    const xFrac = (parseFloat(lon) + 180) / 360;
-    const yFrac = (90 - parseFloat(lat)) / 180;
-    if (!isLand(xFrac, yFrac)) {
-      showToast('That spot landed in the water on our map — try zooming in nearby instead', 'error');
-      return;
-    }
-    const centerCol = Math.floor(xFrac * GRID_COLS);
-    const centerRow = Math.floor(yFrac * GRID_ROWS);
-    enterZoom(centerRow, centerCol, true);
+    const lat = parseFloat(results[0].lat), lon = parseFloat(results[0].lon);
+
+    if (searchResultMarker) locMap.removeLayer(searchResultMarker);
+    searchResultMarker = L.circleMarker([lat, lon], {
+      radius: 7, color: '#f59e0b', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.55,
+    }).addTo(locMap).bindTooltip(results[0].display_name || query, { direction: 'top' });
+
+    locMap.flyTo([lat, lon], 13, { duration: 1.2 });
   } catch (e) {
     showToast('Search failed — check your connection and try again', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Find';
   }
-}
-
-function handleOverviewClick(e) {
-  const canvas = document.getElementById('loc-overview-canvas');
-  const rect = canvas.getBoundingClientRect();
-  const xFrac = (e.clientX - rect.left) / rect.width;
-  const yFrac = (e.clientY - rect.top) / rect.height;
-  if (!isLand(xFrac, yFrac)) {
-    return showToast('Pick a spot on land — that dot is ocean 🌊', 'error');
-  }
-  const centerCol = Math.floor(xFrac * GRID_COLS);
-  const centerRow = Math.floor(yFrac * GRID_ROWS);
-  enterZoom(centerRow, centerCol, false);
-}
-
-function backToOverview() {
-  resetLocationSelection();
-  document.getElementById('loc-stage-zoom').style.display = 'none';
-  document.getElementById('loc-stage-overview').style.display = 'block';
-}
-
-async function enterZoom(centerRow, centerCol, markTarget) {
-  document.getElementById('loc-stage-overview').style.display = 'none';
-  document.getElementById('loc-stage-zoom').style.display = 'block';
-  zoomCenterRow = centerRow;
-  zoomCenterCol = centerCol;
-  if (markTarget) { targetRow = centerRow; targetCol = centerCol; }
-  else { targetRow = null; targetCol = null; }
-  await refreshZoomView();
-}
-
-function panZoom(dRow, dCol) {
-  const step = Math.max(1, Math.round(currentSpan / 2));
-  zoomCenterRow = Math.max(0, Math.min(GRID_ROWS - 1, zoomCenterRow + dRow * step));
-  zoomCenterCol = Math.max(0, Math.min(GRID_COLS - 1, zoomCenterCol + dCol * step));
-  refreshZoomView();
-}
-
-function zoomInOut(delta) {
-  currentSpan = Math.max(6, Math.min(30, currentSpan + delta));
-  refreshZoomView();
-}
-
-async function refreshZoomView() {
-  const half = currentSpan / 2;
-  const minRow = Math.max(0, Math.round(zoomCenterRow - half));
-  const maxRow = Math.min(GRID_ROWS - 1, Math.round(zoomCenterRow + half));
-  const minCol = Math.max(0, Math.round(zoomCenterCol - half));
-  const maxCol = Math.min(GRID_COLS - 1, Math.round(zoomCenterCol + half));
-
-  const { lat, lon } = gridToLatLon(zoomCenterRow, zoomCenterCol);
-  document.getElementById('loc-region-sub').textContent = `≈ ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`;
-
-  const grid = document.getElementById('loc-grid');
-  grid.dataset.minRow = minRow; grid.dataset.minCol = minCol;
-  grid.dataset.maxRow = maxRow; grid.dataset.maxCol = maxCol;
-
-  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--muted);padding:20px;">Loading cells…</div>';
-  const occupied = await fetchOccupiedInRange(minRow - 3, maxRow + 3, minCol - 3, maxCol + 3);
-  grid.dataset.occupied = JSON.stringify(occupied);
-  renderZoomGrid(minRow, maxRow, minCol, maxCol, occupied);
-}
-
-async function fetchOccupiedInRange(minRow, maxRow, minCol, maxCol) {
-  const { data, error } = await sb.from('cells')
-    .select('grid_row,grid_col,block_rows,block_cols')
-    .eq('status', 'active')
-    .not('grid_row', 'is', null)
-    .gte('grid_row', minRow).lte('grid_row', maxRow)
-    .gte('grid_col', minCol).lte('grid_col', maxCol);
-  if (error) { showToast('Could not load the grid. Try again.', 'error'); return []; }
-  return data || [];
-}
-
-function footprintCells(row, col, size) {
-  const cells = [];
-  for (let r = row; r < row + size; r++) for (let c = col; c < col + size; c++) cells.push(`${r}_${c}`);
-  return cells;
-}
-
-function buildOccupiedSet(occupied) {
-  const set = new Set();
-  for (const cell of occupied) {
-    const size = Math.max(cell.block_rows || 1, cell.block_cols || 1);
-    for (const key of footprintCells(cell.grid_row, cell.grid_col, size)) set.add(key);
-  }
-  return set;
-}
-
-function renderZoomGrid(minRow, maxRow, minCol, maxCol, occupied) {
-  const grid = document.getElementById('loc-grid');
-  const cols = maxCol - minCol + 1;
-  grid.style.gridTemplateColumns = `repeat(${cols}, 26px)`;
-  const occupiedSet = buildOccupiedSet(occupied);
-  grid.innerHTML = '';
-  for (let r = minRow; r <= maxRow; r++) {
-    for (let c = minCol; c <= maxCol; c++) {
-      const xFrac = (c + 0.5) / GRID_COLS, yFrac = (r + 0.5) / GRID_ROWS;
-      const land = isLand(xFrac, yFrac);
-      const taken = occupiedSet.has(`${r}_${c}`);
-      const div = document.createElement('div');
-      div.className = 'loc-cell ' + (!land ? 'ocean' : taken ? 'taken' : 'land');
-      if (targetRow === r && targetCol === c) div.classList.add('target');
-      div.title = !land ? 'Ocean' : taken ? 'Already taken' : `Row ${r}, Col ${c}`;
-      if (land && !taken) div.onclick = () => trySelectBlock(r, c, minRow, maxRow, minCol, maxCol, occupiedSet);
-      grid.appendChild(div);
-    }
-  }
-}
-
-function trySelectBlock(row, col, minRow, maxRow, minCol, maxCol, occupiedSet) {
-  const size = tierBlockSize(selectedTier);
-  const footprint = footprintCells(row, col, size);
-  for (const key of footprint) {
-    const [r, c] = key.split('_').map(Number);
-    if (r > maxRow || c > maxCol || !isLand((c + 0.5) / GRID_COLS, (r + 0.5) / GRID_ROWS) || occupiedSet.has(key)) {
-      return showToast(size > 1 ? `That ${size}×${size} block doesn't fully fit here — try another spot.` : 'That cell is not available.', 'error');
-    }
-  }
-  selectedGridRow = row;
-  selectedGridCol = col;
-  selectedBlockSize = size;
-  document.querySelectorAll('.loc-cell').forEach(el => el.classList.remove('selected'));
-  const cellEls = grid_cellElements(minRow, minCol, maxCol);
-  for (const key of footprint) {
-    const [r, c] = key.split('_').map(Number);
-    const el = cellEls[`${r}_${c}`];
-    if (el) el.classList.add('selected');
-  }
-  const bar = document.getElementById('loc-selection-bar');
-  bar.classList.add('active');
-  document.getElementById('loc-selection-text').innerHTML =
-    `<strong>Spot selected</strong> — row ${row}, col ${col}${size > 1 ? ` (${size}×${size} block)` : ''}`;
-  document.getElementById('btn-next-loc').disabled = false;
-}
-
-function grid_cellElements(minRow, minCol, maxCol) {
-  const grid = document.getElementById('loc-grid');
-  const cols = maxCol - minCol + 1;
-  const map = {};
-  Array.from(grid.children).forEach((el, i) => {
-    const r = minRow + Math.floor(i / cols), c = minCol + (i % cols);
-    map[`${r}_${c}`] = el;
-  });
-  return map;
 }
 
 function updateCharCount(inputId, countId, max) {
@@ -1033,15 +742,14 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   const title = document.getElementById('dream-title').value.trim();
   const desc = document.getElementById('dream-desc').value.trim();
   const photoUrl = getPhotoUrl();
-  if (selectedGridRow === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
+  if (selectedLat === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
   const cellNum = Math.floor(Math.random() * 10000) + 1;
 
   const { data: cell, error: cellError } = await sb.from('cells').insert({
     cell_number: cellNum, user_id: currentUser.id,
     status: 'active', tier: selectedTier,
     price: selectedPrice, purchased_at: new Date().toISOString(),
-    grid_row: selectedGridRow, grid_col: selectedGridCol,
-    block_rows: selectedBlockSize, block_cols: selectedBlockSize,
+    lat: selectedLat, lng: selectedLng,
   }).select().single();
 
   if (cellError) { showToast('Error saving. Contact support.', 'error'); return; }
