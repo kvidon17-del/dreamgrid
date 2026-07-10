@@ -266,6 +266,7 @@
   <button class="filter-btn" onclick="setFilter('active', this)">● Active</button>
   <button class="filter-btn" onclick="setFilter('fulfilled', this)">✓ Fulfilled</button>
   <select class="sort-select" onchange="setSort(this.value)">
+    <option value="featured">✦ Featured</option>
     <option value="newest">Newest first</option>
     <option value="oldest">Oldest first</option>
     <option value="likes">Most liked</option>
@@ -300,7 +301,7 @@ const PAGE_SIZE = 12;
 let allDreams = [];
 let filteredDreams = [];
 let currentFilter = 'all';
-let currentSort = 'newest';
+let currentSort = 'featured';
 let searchQuery = '';
 let displayedCount = PAGE_SIZE;
 
@@ -354,6 +355,13 @@ function applyFilters() {
   }
 
   // Sort
+  const tierRank = { vip: 3, premium: 2, standard: 1, basic: 0 };
+  if (currentSort === 'featured') {
+    result.sort((a,b) => {
+      const rankDiff = (tierRank[b.cells?.tier] ?? 0) - (tierRank[a.cells?.tier] ?? 0);
+      return rankDiff !== 0 ? rankDiff : new Date(b.created_at) - new Date(a.created_at);
+    });
+  }
   if (currentSort === 'newest') result.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   if (currentSort === 'oldest') result.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
   if (currentSort === 'likes') result.sort((a,b) => (b.likes_count||0) - (a.likes_count||0));

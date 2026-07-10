@@ -130,6 +130,13 @@
     border: 1px solid var(--border);
   }
 
+  .dream-video-wrap { position: relative; width: 100%; padding-top: 56.25%; margin-bottom: 28px; border-radius: var(--radius-lg); overflow: hidden; background: #000; display: none; }
+  .dream-video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .dream-gallery { display: none; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 28px; }
+  .dream-gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; cursor: pointer; transition: transform 0.2s; border: 1px solid var(--border); }
+  .dream-gallery img:hover { transform: scale(1.03); }
+  .vip-glow { box-shadow: 0 0 0 2px #d97706, 0 0 34px rgba(217,119,6,0.35) !important; }
+
   /* CELL INFO */
   .cell-info {
     display: flex; align-items: center; gap: 16px;
@@ -314,6 +321,12 @@
   <!-- Photo -->
   <img id="dream-photo-full" class="dream-photo-full" style="display:none;" alt="Dream photo">
 
+  <!-- Video (Premium+) -->
+  <div id="dream-video-wrap" class="dream-video-wrap"></div>
+
+  <!-- Gallery (VIP) -->
+  <div id="dream-gallery" class="dream-gallery"></div>
+
   <!-- Cell info -->
   <div class="cell-info" id="cell-info">
     <div class="cell-badge" id="cell-badge">
@@ -420,6 +433,27 @@ async function init() {
   document.getElementById('loading').style.display = 'none';
 }
 
+function getEmbedUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtube.com')) {
+      const id = u.searchParams.get('v');
+      if (id) return `https://www.youtube.com/embed/${id}`;
+      const m = u.pathname.match(/\/(shorts|embed)\/([^/?]+)/);
+      if (m) return `https://www.youtube.com/embed/${m[2]}`;
+    }
+    if (u.hostname.includes('youtu.be')) {
+      const id = u.pathname.slice(1);
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+    if (u.hostname.includes('vimeo.com')) {
+      const id = u.pathname.split('/').filter(Boolean)[0];
+      if (id) return `https://player.vimeo.com/video/${id}`;
+    }
+  } catch (e) {}
+  return null;
+}
+
 function renderDream(dream) {
   // Page title
   document.title = `${dream.title} — Dream Grid`;
@@ -466,6 +500,25 @@ function renderDream(dream) {
     document.getElementById('dream-photo-full').style.display = 'block';
   }
 
+  // Video (Premium+)
+  if (dream.video_url) {
+    const embed = getEmbedUrl(dream.video_url);
+    const videoWrap = document.getElementById('dream-video-wrap');
+    if (embed) {
+      videoWrap.innerHTML = `<iframe src="${embed}" title="Dream video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      videoWrap.style.display = 'block';
+    }
+  }
+
+  // Gallery (VIP)
+  if (Array.isArray(dream.gallery_urls) && dream.gallery_urls.length) {
+    const gallery = document.getElementById('dream-gallery');
+    gallery.innerHTML = dream.gallery_urls.map(url =>
+      `<img src="${url}" alt="Dream photo" onclick="window.open('${url}','_blank')">`
+    ).join('');
+    gallery.style.display = 'grid';
+  }
+
   // Description
   document.getElementById('dream-description').textContent = dream.description || '';
 
@@ -477,6 +530,12 @@ function renderDream(dream) {
   document.getElementById('cell-tier-label').textContent = tierLabels[tier] || 'Dream';
   document.getElementById('cell-badge').style.background = `linear-gradient(135deg, ${tierColors[tier]}, ${tierColors[tier]}99)`;
   document.getElementById('cell-date').textContent = 'Claimed on ' + new Date(dream.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  // VIP gets a gold glow on the hero photo and cell badge
+  if (tier === 'vip') {
+    document.getElementById('dream-photo-full').classList.add('vip-glow');
+    document.getElementById('cell-badge').classList.add('vip-glow');
+  }
 
   // Likes
   document.getElementById('like-count').textContent = dream.likes_count || 0;

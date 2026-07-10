@@ -144,7 +144,8 @@
   }
   .photo-upload-area:hover { border-color: #a78bfa; background: rgba(167,139,250,0.05); }
   .photo-upload-area.has-file { border-color: var(--green); background: rgba(16,185,129,0.05); }
-  .photo-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .photo-upload-area.drag-over { border-color: #a78bfa; background: rgba(167,139,250,0.1); }
+  .photo-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; touch-action: manipulation; }
   .upload-icon { font-size: 32px; margin-bottom: 8px; }
   .upload-text { font-size: 14px; color: var(--muted); }
   .upload-text strong { color: #a78bfa; }
@@ -152,6 +153,10 @@
   .photo-divider { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
   .photo-divider::before, .photo-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   .photo-divider span { font-size: 12px; color: var(--muted); }
+  .gallery-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .gallery-thumb { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; }
+  .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gallery-thumb .g-remove { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; line-height: 18px; cursor: pointer; padding: 0; }
 
   .payment-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
   .payment-summary { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -364,17 +369,41 @@
       <div id="photo-group" style="display:none;">
         <div class="form-group">
           <label>Photo (optional)</label>
-          <div class="photo-upload-area" id="upload-area">
+          <div class="photo-upload-area" id="upload-area"
+               ondragover="event.preventDefault(); this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault(); this.classList.remove('drag-over'); handleFileSelect({target:{files:event.dataTransfer.files}})">
             <input type="file" id="photo-file" accept="image/*" onchange="handleFileSelect(event)">
             <div class="upload-icon">📸</div>
             <div class="upload-text">
-              <strong>Click to upload</strong> or drag & drop<br>
-              <span style="font-size:12px;">JPG, PNG, GIF up to 5MB</span>
+              <strong>Tap to upload</strong> or drag & drop<br>
+              <span style="font-size:12px;">Any photo from your phone or computer — we'll optimize it automatically</span>
             </div>
             <img id="upload-preview" class="upload-preview" alt="Preview">
           </div>
           <div class="photo-divider"><span>or paste image URL</span></div>
           <input type="url" id="dream-photo-url" placeholder="https://example.com/photo.jpg" oninput="handleUrlInput()">
+        </div>
+      </div>
+
+      <!-- VIDEO (Premium+) -->
+      <div id="video-group" style="display:none;">
+        <div class="form-group">
+          <label>Video link (optional)</label>
+          <input type="url" id="dream-video-url" placeholder="Paste a YouTube or Vimeo link">
+        </div>
+      </div>
+
+      <!-- GALLERY (VIP only) -->
+      <div id="gallery-group" style="display:none;">
+        <div class="form-group">
+          <label>Extra photos (up to 4, VIP gallery)</label>
+          <div class="photo-upload-area" id="gallery-upload-area">
+            <input type="file" id="gallery-files" accept="image/*" multiple onchange="handleGalleryFiles(event)">
+            <div class="upload-icon">🖼️</div>
+            <div class="upload-text"><strong>Tap to add photos</strong><br><span style="font-size:12px;">Select multiple at once, or add one by one</span></div>
+          </div>
+          <div class="gallery-preview" id="gallery-preview"></div>
         </div>
       </div>
 
@@ -432,6 +461,7 @@ let selectedTier = null;
 let selectedPrice = 0;
 let createdDreamId = null;
 let uploadedPhotoUrl = null;
+let galleryUrls = [];
 
 // ── Location picker state (real interactive map) ──
 let selectedLat = null;
@@ -517,6 +547,7 @@ function renderAllDreams(dreams) {
 function openDreamModal() {
   document.getElementById('dream-modal').classList.add('active');
   resetLocationSelection();
+  galleryUrls = [];
   goToStep1();
 }
 function closeDreamModal() {
@@ -542,12 +573,21 @@ function goToLocationStep() {
   updateStepBars(2);
   initLocationStep();
 }
+const TIER_DESC_LIMIT = { basic: 300, standard: 1000, premium: 1000, vip: 1500 };
+
 function goToStep2() {
   if (selectedLat === null) return showToast('Please pick a spot on the map first!', 'error');
   hideAllSteps();
   document.getElementById('step-2').style.display = 'block';
   updateStepBars(3);
   document.getElementById('photo-group').style.display = ['standard','premium','vip'].includes(selectedTier) ? 'block' : 'none';
+  document.getElementById('video-group').style.display = ['premium','vip'].includes(selectedTier) ? 'block' : 'none';
+  document.getElementById('gallery-group').style.display = selectedTier === 'vip' ? 'block' : 'none';
+
+  const limit = TIER_DESC_LIMIT[selectedTier] || 300;
+  const descEl = document.getElementById('dream-desc');
+  descEl.maxLength = limit;
+  document.querySelector('#desc-count').parentElement.innerHTML = `<span id="desc-count">${descEl.value.length}</span>/${limit}`;
 }
 function goToStep3() {
   const title = document.getElementById('dream-title').value.trim();
@@ -719,26 +759,31 @@ function updateCharCount(inputId, countId, max) {
 async function handleFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) return showToast('File too large! Max 5MB.', 'error');
+  if (file.size > 30 * 1024 * 1024) return showToast("That photo is huge — try a different one.", 'error');
 
   const preview = document.getElementById('upload-preview');
   const area = document.getElementById('upload-area');
 
-  // Show preview immediately
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    preview.src = e.target.result;
-    preview.style.display = 'block';
-    area.classList.add('has-file');
-    area.querySelector('.upload-icon').textContent = '✅';
-    area.querySelector('.upload-text').innerHTML = `<strong>${file.name}</strong><br><span style="font-size:12px;color:var(--green)">Ready to upload</span>`;
-  };
-  reader.readAsDataURL(file);
+  showToast('Preparing photo…', 'success');
+  let blob;
+  try {
+    blob = await compressImage(file);
+  } catch (e) {
+    showToast("Couldn't read that photo — try a different one, or paste a URL instead.", 'error');
+    return;
+  }
 
-  // Upload to Supabase Storage
+  // Show preview
+  preview.src = URL.createObjectURL(blob);
+  preview.style.display = 'block';
+  area.classList.add('has-file');
+  area.querySelector('.upload-icon').textContent = '✅';
+  area.querySelector('.upload-text').innerHTML = `<strong>Photo ready</strong><br><span style="font-size:12px;color:var(--green)">Uploading…</span>`;
+
+  // Upload to Supabase Storage — always a compressed JPEG, so it's small and displays everywhere
   showToast('Uploading photo...', 'success');
-  const fileName = `${currentUser.id}/${Date.now()}_${file.name}`;
-  const { data, error } = await sb.storage.from('dream-photos').upload(fileName, file, { upsert: true });
+  const fileName = `${currentUser.id}/${Date.now()}_photo.jpg`;
+  const { data, error } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
 
   if (error) {
     showToast('Upload failed. Try URL instead.', 'error');
@@ -748,9 +793,72 @@ async function handleFileSelect(event) {
   const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
   uploadedPhotoUrl = urlData.publicUrl;
   showToast('✅ Photo uploaded!', 'success');
+  area.querySelector('.upload-text').innerHTML = `<strong>Photo ready</strong><br><span style="font-size:12px;color:var(--green)">Uploaded!</span>`;
 
   // Clear URL input
   document.getElementById('dream-photo-url').value = '';
+}
+
+// Resizes + re-encodes any photo (including iPhone HEIC shots) into a compact JPEG
+// that uploads fast and displays correctly on every device.
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
+    img.src = url;
+  });
+}
+
+// ── GALLERY UPLOAD (VIP) ──
+async function handleGalleryFiles(event) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+  const room = 4 - galleryUrls.length;
+  if (room <= 0) { showToast('Gallery is full — remove a photo first (max 4).', 'error'); return; }
+
+  for (const file of files.slice(0, room)) {
+    showToast('Uploading photo…', 'success');
+    try {
+      const blob = await compressImage(file);
+      const fileName = `${currentUser.id}/${Date.now()}_gallery.jpg`;
+      const { error } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (error) { showToast('One photo failed to upload.', 'error'); continue; }
+      const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
+      galleryUrls.push(urlData.publicUrl);
+    } catch (e) {
+      showToast('One photo could not be read.', 'error');
+    }
+  }
+  renderGalleryPreview();
+  event.target.value = '';
+}
+
+function renderGalleryPreview() {
+  const wrap = document.getElementById('gallery-preview');
+  wrap.innerHTML = galleryUrls.map((url, i) => `
+    <div class="gallery-thumb">
+      <img src="${url}" alt="Gallery photo">
+      <button type="button" class="g-remove" onclick="removeGalleryPhoto(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeGalleryPhoto(i) {
+  galleryUrls.splice(i, 1);
+  renderGalleryPreview();
 }
 
 function handleUrlInput() {
@@ -797,6 +905,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   const title = document.getElementById('dream-title').value.trim();
   const desc = document.getElementById('dream-desc').value.trim();
   const photoUrl = getPhotoUrl();
+  const videoUrl = document.getElementById('dream-video-url')?.value?.trim() || null;
   if (selectedLat === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
   const cellNum = Math.floor(Math.random() * 10000) + 1;
 
@@ -812,6 +921,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   const { data: dream, error: dreamError } = await sb.from('dreams').insert({
     user_id: currentUser.id, cell_id: cell.id,
     title, description: desc, photo_url: photoUrl, status: 'active',
+    video_url: videoUrl, gallery_urls: galleryUrls,
   }).select().single();
 
   if (dreamError) { showToast('Error saving dream. Contact support.', 'error'); return; }

@@ -150,6 +150,17 @@
 
   /* FULFILLED */
   .fulfilled-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 1080px; margin: 0 auto; }
+
+  .featured-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 1080px; margin: 0 auto; }
+  .featured-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: all 0.3s; text-decoration: none; display: block; }
+  .featured-card:hover { border-color: var(--border-hi); transform: translateY(-4px); }
+  .featured-card.vip { border-color: rgba(217,119,6,0.5); box-shadow: 0 0 24px rgba(217,119,6,0.15); }
+  .featured-photo { width: 100%; height: 160px; object-fit: cover; background: linear-gradient(135deg,rgba(99,60,220,0.25),rgba(168,85,247,0.15)); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .featured-body { padding: 18px 20px; }
+  .featured-tier { font-size: 11px; font-weight: 700; color: #a78bfa; margin-bottom: 6px; }
+  .featured-card.vip .featured-tier { color: #d97706; }
+  .featured-title { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.4; }
+  .featured-empty { text-align: center; color: var(--muted); font-size: 14px; grid-column: 1/-1; padding: 20px; }
   .story-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; transition: all 0.3s; }
   .story-card:hover { border-color: var(--border-hi); transform: translateY(-4px); }
   .story-flag { font-size: 24px; margin-bottom: 12px; }
@@ -207,6 +218,7 @@
     .how-grid { grid-template-columns: 1fr; }
     .pricing-grid { grid-template-columns: 1fr 1fr; }
     .fulfilled-grid { grid-template-columns: 1fr; }
+    .featured-grid { grid-template-columns: 1fr; }
     footer { flex-direction: column; padding: 32px 24px; }
   }
   @media (max-width: 600px) {
@@ -291,9 +303,21 @@
     <h2 class="section-title fade-up">Your dream, your place on the map</h2>
     <p class="section-desc fade-up">Three steps to become part of the world's living dream archive.</p>
     <div class="how-grid">
-      <div class="how-card fade-up"><div class="how-num">Step 01</div><span class="how-emoji">✨</span><h3>Choose your cell</h3><p>Browse the Dream Grid and pick any free cell. Every location is unique — yours forever.</p></div>
+      <div class="how-card fade-up"><div class="how-num">Step 01</div><span class="how-emoji">✨</span><h3>Choose your spot</h3><p>Search the world map or drop a pin anywhere — your real city, or the place you dream of.</p></div>
       <div class="how-card fade-up"><div class="how-num">Step 02</div><span class="how-emoji">💭</span><h3>Write your dream</h3><p>Tell the world what you dream of. Add a photo, set your intention, and hit publish.</p></div>
       <div class="how-card fade-up"><div class="how-num">Step 03</div><span class="how-emoji">🌟</span><h3>Inspire &amp; be inspired</h3><p>Get support from dreamers worldwide. Mark your dream fulfilled when it comes true.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURED DREAMS -->
+<section class="section" id="featured">
+  <div class="section-inner">
+    <p class="section-eyebrow fade-up">✦ Featured Dreams</p>
+    <h2 class="section-title fade-up">Dreams making the biggest mark</h2>
+    <p class="section-desc fade-up">Premium and VIP dreams, pinned to the top of the grid.</p>
+    <div class="featured-grid" id="featured-grid">
+      <div class="featured-empty">Loading…</div>
     </div>
   </div>
 </section>
@@ -309,10 +333,10 @@
       <div class="p-price">€3</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
-        <li><span class="p-check">✓</span> 1 cell on the grid</li>
+        <li><span class="p-check">✓</span> Your dream, pinned on the map</li>
         <li><span class="p-check">✓</span> Text up to 300 characters</li>
         <li><span class="p-check">✓</span> Public dream page</li>
-        <li><span class="p-check">✓</span> Community support</li>
+        <li><span class="p-check">✓</span> Share to social media</li>
       </ul>
       <button class="p-btn" onclick="openModal('signup')">Get started</button>
     </div>
@@ -321,10 +345,10 @@
       <div class="p-price">€10</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
-        <li><span class="p-check">✓</span> 4 cells (2×2 block)</li>
+        <li><span class="p-check">✓</span> Everything in My Dream</li>
         <li><span class="p-check">✓</span> Photo upload</li>
         <li><span class="p-check">✓</span> Text up to 1,000 characters</li>
-        <li><span class="p-check">✓</span> Progress updates</li>
+        <li><span class="p-check">✓</span> Brighter pin on the map</li>
       </ul>
       <button class="p-btn" onclick="openModal('signup')">Get started</button>
     </div>
@@ -334,10 +358,10 @@
       <div class="p-price">€25</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
-        <li><span class="p-check">✓</span> 9 cells (3×3 block)</li>
-        <li><span class="p-check">✓</span> Photo + Video</li>
-        <li><span class="p-check">✓</span> Featured on homepage</li>
-        <li><span class="p-check">✓</span> Priority visibility</li>
+        <li><span class="p-check">✓</span> Everything in Big Dream</li>
+        <li><span class="p-check">✓</span> Video (YouTube or Vimeo)</li>
+        <li><span class="p-check">✓</span> Featured on the homepage</li>
+        <li><span class="p-check">✓</span> Priority placement in Explore</li>
       </ul>
       <button class="p-btn featured" onclick="openModal('signup')">Share your dream</button>
     </div>
@@ -346,10 +370,10 @@
       <div class="p-price">€100</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
-        <li><span class="p-check">✓</span> Dedicated page</li>
-        <li><span class="p-check">✓</span> Personal interview</li>
-        <li><span class="p-check">✓</span> Social media promotion</li>
-        <li><span class="p-check">✓</span> Gold frame on the grid</li>
+        <li><span class="p-check">✓</span> Everything in Dream of the Year</li>
+        <li><span class="p-check">✓</span> Up to 4 extra gallery photos</li>
+        <li><span class="p-check">✓</span> Text up to 1,500 characters</li>
+        <li><span class="p-check">✓</span> Gold-highlighted page & top of Explore</li>
       </ul>
       <button class="p-btn" onclick="openModal('signup')">Become a legend</button>
     </div>
@@ -374,7 +398,7 @@
 <section class="cta-section" id="about">
   <div class="cta-box fade-up">
     <h2>Your dream is waiting for its place</h2>
-    <p>Join thousands of dreamers from 40+ countries. Claim your cell today — starting from just €3.</p>
+    <p>Join thousands of dreamers from 40+ countries. Claim your spot today — starting from just €3.</p>
     <div class="cta-buttons">
       <button class="btn-hero-primary" onclick="openModal('signup')">✦ Share Your Dream</button>
       <a href="#how" class="btn-hero-secondary">🌐 How it works</a>
@@ -431,6 +455,39 @@ const { createClient } = supabase;
 const SUPABASE_URL = 'https://wnbgwonqpjwzdgcngkxi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Featured Dreams ──
+const FEATURED_TIER_LABEL = { premium: '⭐ Dream of the Year', vip: '👑 Dream Legend' };
+async function loadFeaturedDreams() {
+  const grid = document.getElementById('featured-grid');
+  const { data, error } = await sb.from('dreams')
+    .select('id,title,photo_url,created_at,cells!inner(tier)')
+    .eq('status', 'active')
+    .in('cells.tier', ['premium', 'vip'])
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const featured = (data || [])
+    .filter(d => d.cells && ['premium', 'vip'].includes(d.cells.tier))
+    .sort((a, b) => (a.cells.tier === b.cells.tier ? 0 : a.cells.tier === 'vip' ? -1 : 1))
+    .slice(0, 6);
+
+  if (error || !featured.length) {
+    grid.innerHTML = '<div class="featured-empty">Be the first Premium or VIP dream featured here ✦</div>';
+    return;
+  }
+
+  grid.innerHTML = featured.map(d => `
+    <a class="featured-card ${d.cells.tier === 'vip' ? 'vip' : ''}" href="/dream/${d.id}">
+      ${d.photo_url ? `<img class="featured-photo" src="${d.photo_url}" alt="${d.title}">` : `<div class="featured-photo">${d.cells.tier === 'vip' ? '👑' : '⭐'}</div>`}
+      <div class="featured-body">
+        <div class="featured-tier">${FEATURED_TIER_LABEL[d.cells.tier]}</div>
+        <div class="featured-title">${d.title}</div>
+      </div>
+    </a>
+  `).join('');
+}
+loadFeaturedDreams();
 
 // ── Auth state ──
 async function checkUser() {
