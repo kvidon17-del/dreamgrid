@@ -67,6 +67,11 @@
 
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
   .section-title { font-family: 'Sora',sans-serif; font-size: 20px; font-weight: 700; color: #fff; }
+
+  .dash-tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
+  .dash-tab { background: none; border: none; color: var(--muted); font-size: 14px; font-weight: 600; padding: 12px 18px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; margin-bottom: -1px; }
+  .dash-tab:hover { color: #fff; }
+  .dash-tab.active { color: #a78bfa; border-bottom-color: #a78bfa; }
   .section-tag { font-size: 11px; font-weight: 600; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.12em; }
 
   .no-dream-card { background: var(--surface); border: 2px dashed rgba(167,139,250,0.25); border-radius: var(--radius-lg); padding: 60px 48px; text-align: center; }
@@ -265,66 +270,75 @@
     <div class="stat-card"><div class="stat-card-icon">✨</div><div class="stat-card-value" id="stat-views">0</div><div class="stat-card-label">Dream views</div></div>
   </div>
 
-  <div style="margin-bottom: 40px;">
-    <div class="section-header">
-      <div class="section-title">My Dream</div>
-      <div class="section-tag">✦ Your place on the map</div>
-    </div>
-    <div id="dream-container">
-      <div class="no-dream-card">
-        <div class="nd-icon">🌟</div>
-        <h3>You haven't claimed your cell yet</h3>
-        <p>Choose a tier and claim your permanent place on the world's dream map.</p>
-        <button class="btn-claim" onclick="openDreamModal()">✦ Claim your first cell</button>
+  <div class="dash-tabs">
+    <button class="dash-tab active" id="tab-btn-dreams" onclick="switchDashTab('dreams')">💭 My Dreams</button>
+    <button class="dash-tab" id="tab-btn-profile" onclick="switchDashTab('profile')">✦ My Profile</button>
+  </div>
+
+  <div id="tab-dreams">
+    <div style="margin-bottom: 40px;">
+      <div class="section-header">
+        <div class="section-title">My Dream</div>
+        <div class="section-tag">✦ Your place on the map</div>
+      </div>
+      <div id="dream-container">
+        <div class="no-dream-card">
+          <div class="nd-icon">🌟</div>
+          <h3>You haven't claimed your cell yet</h3>
+          <p>Choose a tier and claim your permanent place on the world's dream map.</p>
+          <button class="btn-claim" onclick="openDreamModal()">✦ Claim your first cell</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div>
-    <div class="section-header">
-      <div class="section-title">My Profile</div>
-      <div class="section-tag">Account details</div>
-    </div>
-    <div class="profile-card">
-      <div class="profile-avatar-big" id="profile-avatar-big">?</div>
-      <div class="profile-info">
-        <h3 id="profile-name">Loading...</h3>
-        <p id="profile-email">Loading...</p>
-        <div class="profile-joined" id="profile-joined">Member since —</div>
+  <div id="tab-profile" style="display:none;">
+    <div>
+      <div class="section-header">
+        <div class="section-title">My Profile</div>
+        <div class="section-tag">Account details</div>
       </div>
-      <button class="btn-edit-profile" onclick="toggleProfileEdit()">✎ Edit profile</button>
-    </div>
-    <p class="profile-bio-display" id="profile-bio-display"></p>
+      <div class="profile-card">
+        <div class="profile-avatar-big" id="profile-avatar-big">?</div>
+        <div class="profile-info">
+          <h3 id="profile-name">Loading...</h3>
+          <p id="profile-email">Loading...</p>
+          <div class="profile-joined" id="profile-joined">Member since —</div>
+        </div>
+        <button class="btn-edit-profile" onclick="toggleProfileEdit()">✎ Edit profile</button>
+      </div>
+      <p class="profile-bio-display" id="profile-bio-display"></p>
 
-    <div class="profile-edit-form" id="profile-edit-form">
-      <div class="profile-edit-grid">
-        <div class="form-group full">
-          <label>Nickname <span style="color:var(--muted);font-weight:400;">— shown instead of "Dreamer" on your dream pages</span></label>
-          <input type="text" id="edit-nickname" maxlength="40" placeholder="e.g. Maria">
+      <div class="profile-edit-form" id="profile-edit-form">
+        <div class="profile-edit-grid">
+          <div class="form-group full">
+            <label>Nickname <span style="color:var(--muted);font-weight:400;">— shown instead of "Dreamer" on your dream pages</span></label>
+            <input type="text" id="edit-nickname" maxlength="40" placeholder="e.g. Maria">
+          </div>
+          <div class="form-group full">
+            <label>About you <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <textarea id="edit-bio" maxlength="200" oninput="updateCharCount('edit-bio','bio-count',200)" placeholder="A short line about yourself..."></textarea>
+            <div class="char-count"><span id="bio-count">0</span>/200</div>
+          </div>
+          <div class="form-group">
+            <label>Instagram</label>
+            <input type="url" id="edit-instagram" placeholder="https://instagram.com/you">
+          </div>
+          <div class="form-group">
+            <label>X / Twitter</label>
+            <input type="url" id="edit-twitter" placeholder="https://x.com/you">
+          </div>
+          <div class="form-group">
+            <label>TikTok</label>
+            <input type="url" id="edit-tiktok" placeholder="https://tiktok.com/@you">
+          </div>
+          <div class="form-group">
+            <label>Website</label>
+            <input type="url" id="edit-website" placeholder="https://yoursite.com">
+          </div>
         </div>
-        <div class="form-group full">
-          <label>About you <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
-          <textarea id="edit-bio" maxlength="200" oninput="updateCharCount('edit-bio','bio-count',200)" placeholder="A short line about yourself..."></textarea>
-          <div class="char-count"><span id="bio-count">0</span>/200</div>
-        </div>
-        <div class="form-group">
-          <label>Instagram</label>
-          <input type="url" id="edit-instagram" placeholder="https://instagram.com/you">
-        </div>
-        <div class="form-group">
-          <label>X / Twitter</label>
-          <input type="url" id="edit-twitter" placeholder="https://x.com/you">
-        </div>
-        <div class="form-group">
-          <label>TikTok</label>
-          <input type="url" id="edit-tiktok" placeholder="https://tiktok.com/@you">
-        </div>
-        <div class="form-group">
-          <label>Website</label>
-          <input type="url" id="edit-website" placeholder="https://yoursite.com">
-        </div>
+        <button class="btn-next" onclick="saveProfile()">Save profile</button>
       </div>
-      <button class="btn-next" onclick="saveProfile()">Save profile</button>
     </div>
   </div>
 </main>
@@ -556,6 +570,13 @@ function populateUI(user) {
   document.getElementById('edit-tiktok').value = userProfile.tiktok_url || '';
   document.getElementById('edit-website').value = userProfile.website_url || '';
   updateCharCount('edit-bio', 'bio-count', 200);
+}
+
+function switchDashTab(tab) {
+  document.getElementById('tab-dreams').style.display = tab === 'dreams' ? 'block' : 'none';
+  document.getElementById('tab-profile').style.display = tab === 'profile' ? 'block' : 'none';
+  document.getElementById('tab-btn-dreams').classList.toggle('active', tab === 'dreams');
+  document.getElementById('tab-btn-profile').classList.toggle('active', tab === 'profile');
 }
 
 function toggleProfileEdit() {

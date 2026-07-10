@@ -492,7 +492,12 @@ loadFeaturedDreams();
 // ── Auth state ──
 async function checkUser() {
   const { data: { user } } = await sb.auth.getUser();
-  updateNav(user);
+  let profile = null;
+  if (user) {
+    const { data } = await sb.from('profiles').select('nickname').eq('id', user.id).single();
+    profile = data;
+  }
+  updateNav(user, profile);
   // If already logged in — show dashboard button in nav
   if (user) {
     const navGuest = document.getElementById('nav-guest');
@@ -506,13 +511,14 @@ async function checkUser() {
   }
 }
 
-function updateNav(user) {
+function updateNav(user, profile) {
   if (user) {
     document.getElementById('nav-guest').style.display = 'none';
     document.getElementById('nav-user').style.display = 'flex';
     const email = user.email || '';
-    document.getElementById('user-email-nav').textContent = email;
-    document.getElementById('user-avatar').textContent = email[0].toUpperCase();
+    const displayName = profile?.nickname || email;
+    document.getElementById('user-email-nav').textContent = displayName;
+    document.getElementById('user-avatar').textContent = displayName[0].toUpperCase();
   } else {
     document.getElementById('nav-guest').style.display = 'flex';
     document.getElementById('nav-user').style.display = 'none';
