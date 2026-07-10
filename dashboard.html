@@ -95,6 +95,12 @@
   .btn-action.purple:hover { background: rgba(167,139,250,0.2); }
 
   .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; display: flex; align-items: center; gap: 24px; }
+  .btn-edit-profile { margin-left: auto; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; font-size: 13px; padding: 9px 16px; border-radius: 20px; cursor: pointer; transition: all 0.2s; white-space: nowrap; align-self: flex-start; }
+  .btn-edit-profile:hover { border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.1); }
+  .profile-bio-display { display: none; font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-top: 14px; }
+  .profile-edit-form { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-top: 14px; }
+  .profile-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .profile-edit-grid .form-group.full { grid-column: 1/-1; }
   .profile-avatar-big { width: 72px; height: 72px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.3); }
   .profile-info h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
   .profile-info p { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
@@ -216,6 +222,8 @@
     .dream-card { flex-direction: column; }
     .tier-grid { grid-template-columns: 1fr 1fr; }
     .modal { padding: 28px 20px; }
+    .profile-card { flex-wrap: wrap; }
+    .profile-edit-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -284,6 +292,39 @@
         <p id="profile-email">Loading...</p>
         <div class="profile-joined" id="profile-joined">Member since —</div>
       </div>
+      <button class="btn-edit-profile" onclick="toggleProfileEdit()">✎ Edit profile</button>
+    </div>
+    <p class="profile-bio-display" id="profile-bio-display"></p>
+
+    <div class="profile-edit-form" id="profile-edit-form">
+      <div class="profile-edit-grid">
+        <div class="form-group full">
+          <label>Nickname <span style="color:var(--muted);font-weight:400;">— shown instead of "Dreamer" on your dream pages</span></label>
+          <input type="text" id="edit-nickname" maxlength="40" placeholder="e.g. Maria">
+        </div>
+        <div class="form-group full">
+          <label>About you <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <textarea id="edit-bio" maxlength="200" oninput="updateCharCount('edit-bio','bio-count',200)" placeholder="A short line about yourself..."></textarea>
+          <div class="char-count"><span id="bio-count">0</span>/200</div>
+        </div>
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="url" id="edit-instagram" placeholder="https://instagram.com/you">
+        </div>
+        <div class="form-group">
+          <label>X / Twitter</label>
+          <input type="url" id="edit-twitter" placeholder="https://x.com/you">
+        </div>
+        <div class="form-group">
+          <label>TikTok</label>
+          <input type="url" id="edit-tiktok" placeholder="https://tiktok.com/@you">
+        </div>
+        <div class="form-group">
+          <label>Website</label>
+          <input type="url" id="edit-website" placeholder="https://yoursite.com">
+        </div>
+      </div>
+      <button class="btn-next" onclick="saveProfile()">Save profile</button>
     </div>
   </div>
 </main>
@@ -457,6 +498,7 @@ const sb = createClient(
 );
 
 let currentUser = null;
+let userProfile = {};
 let selectedTier = null;
 let selectedPrice = 0;
 let createdDreamId = null;
@@ -482,6 +524,8 @@ async function init() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) { window.location.href = 'index'; return; }
   currentUser = user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  userProfile = profile || {};
   populateUI(user);
   await loadUserData(user);
   document.getElementById('loading').style.display = 'none';
@@ -489,16 +533,52 @@ async function init() {
 
 function populateUI(user) {
   const email = user.email || '';
-  const name = email.split('@')[0];
-  const initial = email[0].toUpperCase();
+  const emailName = email.split('@')[0];
+  const displayName = userProfile.nickname || emailName;
+  const initial = displayName[0].toUpperCase();
   document.getElementById('user-avatar').textContent = initial;
   document.getElementById('user-email-nav').textContent = email;
-  document.getElementById('welcome-name').textContent = name;
+  document.getElementById('welcome-name').textContent = displayName;
   document.getElementById('profile-avatar-big').textContent = initial;
-  document.getElementById('profile-name').textContent = name;
+  document.getElementById('profile-name').textContent = displayName;
   document.getElementById('profile-email').textContent = email;
   const joined = new Date(user.created_at);
   document.getElementById('profile-joined').textContent = 'Member since ' + joined.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  const bioDisplay = document.getElementById('profile-bio-display');
+  if (userProfile.bio) { bioDisplay.textContent = userProfile.bio; bioDisplay.style.display = 'block'; }
+  else { bioDisplay.style.display = 'none'; }
+
+  document.getElementById('edit-nickname').value = userProfile.nickname || '';
+  document.getElementById('edit-bio').value = userProfile.bio || '';
+  document.getElementById('edit-instagram').value = userProfile.instagram_url || '';
+  document.getElementById('edit-twitter').value = userProfile.twitter_url || '';
+  document.getElementById('edit-tiktok').value = userProfile.tiktok_url || '';
+  document.getElementById('edit-website').value = userProfile.website_url || '';
+  updateCharCount('edit-bio', 'bio-count', 200);
+}
+
+function toggleProfileEdit() {
+  const form = document.getElementById('profile-edit-form');
+  form.style.display = form.style.display === 'block' ? 'none' : 'block';
+}
+
+async function saveProfile() {
+  const updates = {
+    id: currentUser.id,
+    nickname: document.getElementById('edit-nickname').value.trim() || null,
+    bio: document.getElementById('edit-bio').value.trim() || null,
+    instagram_url: document.getElementById('edit-instagram').value.trim() || null,
+    twitter_url: document.getElementById('edit-twitter').value.trim() || null,
+    tiktok_url: document.getElementById('edit-tiktok').value.trim() || null,
+    website_url: document.getElementById('edit-website').value.trim() || null,
+  };
+  const { error } = await sb.from('profiles').upsert(updates);
+  if (error) { showToast('Could not save profile. Try again.', 'error'); return; }
+  userProfile = { ...userProfile, ...updates };
+  populateUI(currentUser);
+  document.getElementById('profile-edit-form').style.display = 'none';
+  showToast('✅ Profile saved!', 'success');
 }
 
 async function loadUserData(user) {

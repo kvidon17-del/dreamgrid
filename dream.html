@@ -160,6 +160,15 @@
     display: flex; gap: 12px; flex-wrap: wrap;
     margin-bottom: 28px;
   }
+  .dreamer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 28px; }
+  .dreamer-card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .dreamer-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .dreamer-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .dreamer-name { font-size: 16px; font-weight: 700; color: #fff; }
+  .dreamer-bio { font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.6; margin-bottom: 14px; }
+  .dreamer-socials { display: flex; gap: 10px; }
+  .dreamer-social-link { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; text-decoration: none; transition: all 0.2s; }
+  .dreamer-social-link:hover { border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.1); }
   .btn-like {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 24px; border-radius: var(--radius-sm);
@@ -370,6 +379,19 @@
     </div>
   </div>
 
+  <!-- Dreamer info -->
+  <div class="dreamer-card" id="dreamer-card" style="display:none;">
+    <div class="dreamer-card-header">
+      <div class="dreamer-avatar" id="dreamer-avatar">✦</div>
+      <div>
+        <div class="dreamer-label">Dreamer</div>
+        <div class="dreamer-name" id="dreamer-name">Dreamer</div>
+      </div>
+    </div>
+    <p class="dreamer-bio" id="dreamer-bio" style="display:none;"></p>
+    <div class="dreamer-socials" id="dreamer-socials"></div>
+  </div>
+
   <!-- Inspire CTA -->
   <div class="inspire-cta">
     <h3>What's your dream? ✦</h3>
@@ -390,6 +412,7 @@ const sb = createClient(
 
 let currentDream = null;
 let currentUser = null;
+let currentDreamerProfile = {};
 let hasLiked = false;
 const pageUrl = window.location.href;
 
@@ -419,6 +442,10 @@ async function init() {
   if (error || !dream) { showNotFound(); return; }
 
   currentDream = dream;
+
+  // Load the dreamer's public profile (nickname, bio, socials — all optional)
+  const { data: dreamerProfile } = await sb.from('profiles').select('*').eq('id', dream.user_id).single();
+  currentDreamerProfile = dreamerProfile || {};
 
   // Update view count
   sb.from('dreams').update({ views_count: (dream.views_count || 0) + 1 }).eq('id', dreamId).then(() => {});
@@ -482,10 +509,11 @@ function renderDream(dream) {
 
   // Meta
   const joined = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dreamerName = currentDreamerProfile.nickname || 'Dreamer';
   document.getElementById('dream-meta').innerHTML = `
     <div class="meta-item">
       <div class="meta-avatar">✦</div>
-      <span>Dreamer</span>
+      <span>${dreamerName}</span>
     </div>
     <div class="meta-divider"></div>
     <div class="meta-item">📅 ${joined}</div>
@@ -553,6 +581,37 @@ function renderDream(dream) {
   document.getElementById('share-wa').href = `https://wa.me/?text=${text}%20${urlEnc}`;
   document.getElementById('share-tw').href = `https://twitter.com/intent/tweet?text=${text}&url=${urlEnc}`;
   document.getElementById('share-tg').href = `https://t.me/share/url?url=${urlEnc}&text=${text}`;
+
+  renderDreamerCard();
+}
+
+function renderDreamerCard() {
+  const p = currentDreamerProfile;
+  if (!p.nickname && !p.bio && !p.instagram_url && !p.twitter_url && !p.tiktok_url && !p.website_url) return;
+
+  const name = p.nickname || 'Dreamer';
+  document.getElementById('dreamer-name').textContent = name;
+  document.getElementById('dreamer-avatar').textContent = name[0].toUpperCase();
+
+  if (p.bio) {
+    document.getElementById('dreamer-bio').textContent = p.bio;
+    document.getElementById('dreamer-bio').style.display = 'block';
+  }
+
+  const socials = [
+    p.instagram_url ? { url: p.instagram_url, icon: '📷', label: 'Instagram' } : null,
+    p.twitter_url ? { url: p.twitter_url, icon: '🐦', label: 'X / Twitter' } : null,
+    p.tiktok_url ? { url: p.tiktok_url, icon: '🎵', label: 'TikTok' } : null,
+    p.website_url ? { url: p.website_url, icon: '🔗', label: 'Website' } : null,
+  ].filter(Boolean);
+
+  if (socials.length) {
+    document.getElementById('dreamer-socials').innerHTML = socials.map(s =>
+      `<a class="dreamer-social-link" href="${s.url}" target="_blank" rel="noopener noreferrer" title="${s.label}">${s.icon}</a>`
+    ).join('');
+  }
+
+  document.getElementById('dreamer-card').style.display = 'block';
 }
 
 async function toggleLike() {
