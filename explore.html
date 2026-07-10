@@ -135,7 +135,7 @@
     position: relative; flex-shrink: 0;
   }
   .card-photo-placeholder {
-    height: 180px; flex-shrink: 0;
+    height: 180px; flex-shrink: 0; position: relative;
     display: flex; align-items: center; justify-content: center;
     font-size: 48px;
     background: linear-gradient(135deg, rgba(99,60,220,0.15), rgba(168,85,247,0.08));
@@ -385,8 +385,9 @@ function renderDreams() {
     const emoji = tierEmojis[tier] || '✨';
     const date = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+    const safePhotoUrl = dream.photo_url ? dream.photo_url.replace(/"/g, '%22') : '';
     const photoHtml = dream.photo_url
-      ? `<div class="card-photo" style="background-image:url(${dream.photo_url})">
+      ? `<div class="card-photo" style="background-image:url(&quot;${safePhotoUrl}&quot;)">
            <span class="card-tier-badge tier-${tier}">${tierLabels[tier]}</span>
            <span class="card-status status-${dream.status}">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
          </div>`
