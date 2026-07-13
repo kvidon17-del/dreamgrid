@@ -504,6 +504,63 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- EDIT DREAM MODAL -->
+<div class="modal-overlay" id="edit-dream-modal" onclick="closeEditModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeEditDreamModal()">✕</button>
+    <div class="modal-title">Edit your dream</div>
+    <div class="modal-sub">Your spot on the map stays exactly where it is — just update your story.</div>
+
+    <div class="form-group">
+      <label>Dream title *</label>
+      <input type="text" id="edit-dream-title" maxlength="60">
+    </div>
+    <div class="form-group">
+      <label>Describe your dream *</label>
+      <textarea id="edit-dream-desc" oninput="updateCharCount('edit-dream-desc','edit-desc-count', editDescLimit)"></textarea>
+      <div class="char-count"><span id="edit-desc-count">0</span>/<span id="edit-desc-limit">300</span></div>
+    </div>
+
+    <div id="edit-photo-group" style="display:none;">
+      <div class="form-group">
+        <label>Photo</label>
+        <div class="photo-upload-area" id="edit-upload-area"
+             ondragover="event.preventDefault(); this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="event.preventDefault(); this.classList.remove('drag-over'); handleEditFileSelect({target:{files:event.dataTransfer.files}})">
+          <input type="file" id="edit-photo-file" accept="image/*" onchange="handleEditFileSelect(event)">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text"><strong>Tap to change photo</strong><br><span style="font-size:12px;">Or drag & drop a new one</span></div>
+          <img id="edit-upload-preview" class="upload-preview" alt="Preview">
+        </div>
+        <div class="photo-divider"><span>or paste image URL</span></div>
+        <input type="url" id="edit-dream-photo-url" placeholder="https://example.com/photo.jpg" oninput="handleEditUrlInput()">
+      </div>
+    </div>
+
+    <div id="edit-video-group" style="display:none;">
+      <div class="form-group">
+        <label>Video link</label>
+        <input type="url" id="edit-dream-video-url" placeholder="Paste a YouTube or Vimeo link">
+      </div>
+    </div>
+
+    <div id="edit-gallery-group" style="display:none;">
+      <div class="form-group">
+        <label>Extra photos (up to 4, VIP gallery)</label>
+        <div class="photo-upload-area" id="edit-gallery-upload-area">
+          <input type="file" id="edit-gallery-files" accept="image/*" multiple onchange="handleEditGalleryFiles(event)">
+          <div class="upload-icon">🖼️</div>
+          <div class="upload-text"><strong>Tap to add photos</strong></div>
+        </div>
+        <div class="gallery-preview" id="edit-gallery-preview"></div>
+      </div>
+    </div>
+
+    <button class="btn-next" id="btn-save-edit" onclick="saveEditedDream()">Save changes</button>
+  </div>
+</div>
+
 <script>
 const { createClient } = supabase;
 const sb = createClient(
@@ -518,6 +575,11 @@ let selectedPrice = 0;
 let createdDreamId = null;
 let uploadedPhotoUrl = null;
 let galleryUrls = [];
+let userDreams = [];
+let editingDream = null;
+let editUploadedPhotoUrl = null;
+let editGalleryUrls = [];
+let editDescLimit = 300;
 
 // ── Location picker state (real interactive map) ──
 let selectedLat = null;
@@ -604,6 +666,7 @@ async function saveProfile() {
 
 async function loadUserData(user) {
   const { data: dreams } = await sb.from('dreams').select('*, cells(*)').eq('user_id', user.id).order('created_at', { ascending: false });
+  userDreams = dreams || [];
   if (dreams && dreams.length > 0) {
     document.getElementById('stat-dreams').textContent = dreams.length;
     document.getElementById('stat-cells').textContent = dreams.length;
@@ -634,7 +697,7 @@ function renderAllDreams(dreams) {
             <span class="dream-tag tag-tier">${(dream.cells?.tier || 'basic').toUpperCase()}</span>
           </div>
           <div class="dream-actions">
-            <button class="btn-action" onclick="showToast('Edit coming soon!','success')">✏️ Edit</button>
+            <button class="btn-action" onclick="openEditDreamModal('${dream.id}')">✏️ Edit</button>
             <button class="btn-action green" onclick="markFulfilled('${dream.id}')">✓ Mark Fulfilled</button>
             <button class="btn-action purple" onclick="shareDream('${dream.id}')">🔗 Share</button>
           </div>
@@ -960,6 +1023,165 @@ function renderGalleryPreview() {
 function removeGalleryPhoto(i) {
   galleryUrls.splice(i, 1);
   renderGalleryPreview();
+}
+
+// ── EDIT DREAM ──
+function openEditDreamModal(dreamId) {
+  const dream = userDreams.find(d => d.id === dreamId);
+  if (!dream) return;
+
+  editingDream = dream;
+  editUploadedPhotoUrl = dream.photo_url || null;
+  editGalleryUrls = Array.isArray(dream.gallery_urls) ? [...dream.gallery_urls] : [];
+
+  const tier = dream.cells?.tier || 'basic';
+  editDescLimit = TIER_DESC_LIMIT[tier] || 300;
+
+  document.getElementById('edit-dream-title').value = dream.title || '';
+  const descEl = document.getElementById('edit-dream-desc');
+  descEl.value = dream.description || '';
+  descEl.maxLength = editDescLimit;
+  document.getElementById('edit-desc-limit').textContent = editDescLimit;
+  updateCharCount('edit-dream-desc', 'edit-desc-count', editDescLimit);
+
+  document.getElementById('edit-dream-photo-url').value = '';
+  const preview = document.getElementById('edit-upload-preview');
+  const area = document.getElementById('edit-upload-area');
+  if (dream.photo_url) {
+    preview.src = dream.photo_url;
+    preview.style.display = 'block';
+    area.classList.add('has-file');
+  } else {
+    preview.style.display = 'none';
+    area.classList.remove('has-file');
+  }
+
+  document.getElementById('edit-dream-video-url').value = dream.video_url || '';
+
+  document.getElementById('edit-photo-group').style.display = ['standard','premium','vip'].includes(tier) ? 'block' : 'none';
+  document.getElementById('edit-video-group').style.display = ['premium','vip'].includes(tier) ? 'block' : 'none';
+  document.getElementById('edit-gallery-group').style.display = tier === 'vip' ? 'block' : 'none';
+
+  renderEditGalleryPreview();
+  document.getElementById('edit-dream-modal').classList.add('active');
+}
+
+function closeEditDreamModal() {
+  document.getElementById('edit-dream-modal').classList.remove('active');
+}
+function closeEditModalOutside(e) {
+  if (e.target === document.getElementById('edit-dream-modal')) closeEditDreamModal();
+}
+
+function handleEditUrlInput() {
+  const url = document.getElementById('edit-dream-photo-url').value.trim();
+  if (url) {
+    editUploadedPhotoUrl = null;
+    document.getElementById('edit-upload-preview').style.display = 'none';
+    document.getElementById('edit-upload-area').classList.remove('has-file');
+  }
+}
+
+async function handleEditFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) return showToast('That photo is huge — try a different one.', 'error');
+
+  const preview = document.getElementById('edit-upload-preview');
+  const area = document.getElementById('edit-upload-area');
+
+  showToast('Preparing photo…', 'success');
+  let blob;
+  try {
+    blob = await compressImage(file);
+  } catch (e) {
+    showToast("Couldn't read that photo — try a different one.", 'error');
+    return;
+  }
+
+  preview.src = URL.createObjectURL(blob);
+  preview.style.display = 'block';
+  area.classList.add('has-file');
+
+  showToast('Uploading photo...', 'success');
+  const fileName = `${currentUser.id}/${Date.now()}_photo.jpg`;
+  const { error } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+  if (error) { showToast('Upload failed. Try URL instead.', 'error'); return; }
+
+  const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
+  editUploadedPhotoUrl = urlData.publicUrl;
+  document.getElementById('edit-dream-photo-url').value = '';
+  showToast('✅ Photo ready!', 'success');
+}
+
+function getEditPhotoUrl() {
+  if (editUploadedPhotoUrl) return editUploadedPhotoUrl;
+  const url = document.getElementById('edit-dream-photo-url')?.value?.trim();
+  return url || null;
+}
+
+async function handleEditGalleryFiles(event) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+  const room = 4 - editGalleryUrls.length;
+  if (room <= 0) { showToast('Gallery is full — remove a photo first (max 4).', 'error'); return; }
+
+  for (const file of files.slice(0, room)) {
+    showToast('Uploading photo…', 'success');
+    try {
+      const blob = await compressImage(file);
+      const fileName = `${currentUser.id}/${Date.now()}_gallery.jpg`;
+      const { error } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (error) { showToast('One photo failed to upload.', 'error'); continue; }
+      const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
+      editGalleryUrls.push(urlData.publicUrl);
+    } catch (e) {
+      showToast('One photo could not be read.', 'error');
+    }
+  }
+  renderEditGalleryPreview();
+  event.target.value = '';
+}
+
+function renderEditGalleryPreview() {
+  const wrap = document.getElementById('edit-gallery-preview');
+  wrap.innerHTML = editGalleryUrls.map((url, i) => `
+    <div class="gallery-thumb">
+      <img src="${url}" alt="Gallery photo">
+      <button type="button" class="g-remove" onclick="removeEditGalleryPhoto(${i})">✕</button>
+    </div>
+  `).join('');
+}
+function removeEditGalleryPhoto(i) {
+  editGalleryUrls.splice(i, 1);
+  renderEditGalleryPreview();
+}
+
+async function saveEditedDream() {
+  const title = document.getElementById('edit-dream-title').value.trim();
+  const desc = document.getElementById('edit-dream-desc').value.trim();
+  if (!title) return showToast('Please enter a dream title!', 'error');
+  if (!desc) return showToast('Please describe your dream!', 'error');
+
+  const videoUrl = document.getElementById('edit-dream-video-url')?.value?.trim() || null;
+  const photoUrl = getEditPhotoUrl();
+
+  const btn = document.getElementById('btn-save-edit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const { error } = await sb.from('dreams').update({
+    title, description: desc,
+    photo_url: photoUrl, video_url: videoUrl,
+    gallery_urls: editGalleryUrls,
+  }).eq('id', editingDream.id);
+
+  btn.disabled = false; btn.textContent = 'Save changes';
+
+  if (error) { showToast('Could not save changes. Try again.', 'error'); return; }
+
+  showToast('✅ Dream updated!', 'success');
+  closeEditDreamModal();
+  await loadUserData(currentUser);
 }
 
 function handleUrlInput() {
