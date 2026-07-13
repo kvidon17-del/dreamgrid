@@ -188,6 +188,34 @@
   }
   .btn-share-main:hover { background: rgba(167,139,250,0.22); border-color: rgba(167,139,250,0.5); }
 
+  .btn-contact-dreamer {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    background: rgba(244,114,182,0.12);
+    border: 1.5px solid rgba(244,114,182,0.3);
+    color: #f472b6; transition: all 0.2s;
+  }
+  .btn-contact-dreamer:hover { background: rgba(244,114,182,0.22); border-color: rgba(244,114,182,0.5); }
+  .btn-contact-dreamer:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+  .modal { background: #0f1228; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius-lg); padding: 36px; width: 100%; max-width: 460px; position: relative; transform: translateY(20px); transition: transform 0.3s; max-height: 90vh; overflow-y: auto; }
+  .modal-overlay.active .modal { transform: translateY(0); }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  .modal-close:hover { color: #fff; }
+  .modal-title { font-family: 'Sora',sans-serif; font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .form-group textarea { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; font-family: 'Inter',sans-serif; height: 120px; line-height: 1.6; resize: none; }
+  .form-group textarea:focus { border-color: rgba(167,139,250,0.5); }
+  .char-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 4px; }
+  .btn-next { width: 100%; padding: 14px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: 'Inter',sans-serif; }
+  .btn-next:hover { opacity: 0.88; }
+  .btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
+
   /* SHARE SECTION */
   .share-section {
     background: var(--surface); border: 1px solid var(--border);
@@ -362,6 +390,9 @@
     <button class="btn-share-main" onclick="toggleShareSection()">
       🔗 Share this dream
     </button>
+    <button class="btn-contact-dreamer" id="btn-contact-dreamer" onclick="openContactModal()">
+      ✉️ Contact the Dreamer
+    </button>
   </div>
 
   <!-- Share section -->
@@ -402,6 +433,21 @@
 </main>
 
 <div class="toast" id="toast"></div>
+
+<!-- CONTACT DREAMER MODAL -->
+<div class="modal-overlay" id="contact-modal-overlay" onclick="closeContactModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeContactModal()">✕</button>
+    <div class="modal-title">✉️ Message the Dreamer</div>
+    <div class="modal-sub">Sent privately by email — your email address is never shown publicly. If you'd like a reply, make sure you're signed in with an email you check.</div>
+    <div class="form-group">
+      <label>Your message</label>
+      <textarea id="contact-message" maxlength="2000" placeholder="Say hello, share encouragement, or ask a question..." oninput="updateCharCount('contact-message','contact-char-count',2000)"></textarea>
+      <div class="char-count"><span id="contact-char-count">0</span>/2000</div>
+    </div>
+    <button class="btn-next" id="btn-send-contact" onclick="sendContactMessage()">Send message</button>
+  </div>
+</div>
 
 <script>
 const { createClient } = supabase;
@@ -583,6 +629,11 @@ function renderDream(dream) {
   document.getElementById('share-tg').href = `https://t.me/share/url?url=${urlEnc}&text=${text}`;
 
   renderDreamerCard();
+
+  // Hide the contact button on your own dream
+  if (currentUser && currentUser.id === dream.user_id) {
+    document.getElementById('btn-contact-dreamer').style.display = 'none';
+  }
 }
 
 function renderDreamerCard() {
@@ -649,6 +700,62 @@ function toggleShareSection() {
 function copyLink() {
   const url = `${window.location.origin}/dream/${currentDream.id}`;
   navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied to clipboard!'));
+}
+
+function updateCharCount(inputId, countId, max) {
+  document.getElementById(countId).textContent = document.getElementById(inputId).value.length;
+}
+
+function openContactModal() {
+  if (!currentUser) {
+    showToast('Sign in to contact the dreamer!');
+    setTimeout(() => window.location.href = '/', 1500);
+    return;
+  }
+  if (currentUser.id === currentDream.user_id) {
+    showToast("This is your own dream 💫");
+    return;
+  }
+  document.getElementById('contact-message').value = '';
+  updateCharCount('contact-message', 'contact-char-count', 2000);
+  document.getElementById('contact-modal-overlay').classList.add('active');
+}
+
+function closeContactModal() {
+  document.getElementById('contact-modal-overlay').classList.remove('active');
+}
+
+function closeContactModalOutside(e) {
+  if (e.target === document.getElementById('contact-modal-overlay')) closeContactModal();
+}
+
+async function sendContactMessage() {
+  const message = document.getElementById('contact-message').value.trim();
+  if (!message) { showToast('Write a message first!'); return; }
+
+  const btn = document.getElementById('btn-send-contact');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const { data, error } = await sb.functions.invoke('contact-dreamer', {
+    body: {
+      dreamId: currentDream.id,
+      message,
+      senderEmail: currentUser.email,
+    },
+  });
+
+  if (error || !data?.success) {
+    showToast("Couldn't send — please try again in a moment.");
+    btn.disabled = false;
+    btn.textContent = 'Send message';
+    return;
+  }
+
+  showToast('✅ Message sent!');
+  closeContactModal();
+  btn.disabled = false;
+  btn.textContent = 'Send message';
 }
 
 function showNotFound() {
