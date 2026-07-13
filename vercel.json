@@ -3,6 +3,6 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/dream/:id", "destination": "/dream" },
-    { "source": "/explore", "destination": "/explore" }
+    { "source": "/dreamer/:id", "destination": "/dreamer" }
   ]
 }

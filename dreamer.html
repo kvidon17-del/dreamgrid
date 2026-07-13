@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dreamer Profile — Dream Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --bg2: #0c0f24;
+    --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08);
+    --border-hi: rgba(167,139,250,0.35);
+    --text: #ffffff; --muted: rgba(255,255,255,0.45);
+    --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --green: #10b981; --gold: #f59e0b;
+    --radius-sm: 10px; --radius: 16px; --radius-lg: 24px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 68px;
+    background: rgba(7,9,24,0.9); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 800; color: var(--text); text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; }
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn-nav { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+  .btn-nav:hover { color: #fff; }
+  .btn-nav-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--grad-btn); color: #fff; text-decoration: none;
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+  }
+
+  /* PROFILE HERO */
+  .profile-hero {
+    padding: 110px 48px 48px;
+    background: linear-gradient(180deg, rgba(99,60,220,0.12) 0%, transparent 100%);
+    text-align: center;
+  }
+  .profile-avatar-big {
+    width: 84px; height: 84px; border-radius: 50%;
+    background: var(--grad-btn); display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora',sans-serif; font-size: 34px; font-weight: 800; color: #fff;
+    margin: 0 auto 20px;
+  }
+  .profile-hero h1 { font-family: 'Sora',sans-serif; font-size: clamp(26px,4vw,38px); font-weight: 900; color: #fff; margin-bottom: 10px; }
+  .profile-bio { font-size: 15px; color: var(--muted); max-width: 520px; margin: 0 auto 20px; line-height: 1.6; }
+  .profile-socials { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+  .profile-social-link {
+    width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+    font-size: 17px; text-decoration: none; transition: all 0.2s;
+  }
+  .profile-social-link:hover { border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.1); }
+  .stats-mini { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+  .stat-mini { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .stat-mini strong { color: #fff; font-weight: 700; }
+
+  /* MAIN / GRID */
+  main { padding: 16px 48px 80px; }
+  .section-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px; }
+  .dreams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+
+  .dream-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+    transition: all 0.3s; cursor: pointer; text-decoration: none;
+    display: flex; flex-direction: column;
+  }
+  .dream-card:hover { border-color: var(--border-hi); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(99,60,220,0.2); }
+  .card-photo { height: 180px; background-size: cover; background-position: center; position: relative; flex-shrink: 0; }
+  .card-photo-placeholder {
+    height: 180px; flex-shrink: 0; position: relative;
+    display: flex; align-items: center; justify-content: center; font-size: 48px;
+    background: linear-gradient(135deg, rgba(99,60,220,0.15), rgba(168,85,247,0.08));
+  }
+  .card-tier-badge { position: absolute; top: 12px; left: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; }
+  .tier-basic { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; }
+  .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
+  .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
+  .tier-vip { background: rgba(217,119,6,0.3); border: 1px solid rgba(217,119,6,0.5); color: #fcd34d; }
+  .card-status { position: absolute; top: 12px; right: 12px; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+  .status-active { background: rgba(99,60,220,0.3); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
+  .status-fulfilled { background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); color: #34d399; }
+  .card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+  .card-cell { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .card-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 8px; line-height: 1.4; flex: 1; }
+  .card-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .card-likes { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .card-date { font-size: 12px; color: var(--muted); }
+
+  .empty-state { text-align: center; padding: 80px 24px; grid-column: 1 / -1; }
+  .empty-state .es-icon { font-size: 64px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .empty-state p { font-size: 14px; color: var(--muted); }
+
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 16px; }
+  .loading-logo { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .loading-spinner { width: 36px; height: 36px; border: 3px solid rgba(167,139,250,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .profile-hero { padding: 88px 20px 32px; }
+    main { padding: 16px 20px 60px; }
+    .dreams-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-logo">✦ Dream Grid</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<nav>
+  <a href="/" class="logo">
+    <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+    Dream Grid
+  </a>
+  <div class="nav-right">
+    <a href="/explore" class="btn-nav">🌐 Explore</a>
+    <a href="/dashboard" class="btn-nav-primary" id="nav-dashboard" style="display:none;">✦ My Dashboard</a>
+    <a href="/" class="btn-nav-primary" id="nav-share">✦ Share Your Dream</a>
+  </div>
+</nav>
+
+<!-- PROFILE HERO -->
+<div class="profile-hero" id="profile-hero">
+  <div class="profile-avatar-big" id="profile-avatar">✦</div>
+  <h1 id="profile-name">Dreamer</h1>
+  <p class="profile-bio" id="profile-bio" style="display:none;"></p>
+  <div class="profile-socials" id="profile-socials"></div>
+  <div class="stats-mini">
+    <div class="stat-mini">🌟 <strong id="dream-count">—</strong> dream<span id="dream-count-plural">s</span> shared</div>
+    <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
+  </div>
+</div>
+
+<main>
+  <div class="section-label">Dreams by this dreamer</div>
+  <div class="dreams-grid" id="dreams-grid"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://wnbgwonqpjwzdgcngkxi.supabase.co',
+  'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
+);
+
+const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
+
+async function init() {
+  const pathParts = window.location.pathname.split('/');
+  const dreamerId = pathParts[pathParts.length - 1];
+
+  if (!dreamerId || dreamerId === 'dreamer') {
+    showNotFound();
+    return;
+  }
+
+  const { data: { user } } = await sb.auth.getUser();
+  if (user) document.getElementById('nav-dashboard').style.display = 'inline-flex';
+
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', dreamerId).single();
+
+  const { data: dreams, error } = await sb.from('dreams')
+    .select('*, cells(*)')
+    .eq('user_id', dreamerId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  const fulfilled = await sb.from('dreams')
+    .select('*, cells(*)')
+    .eq('user_id', dreamerId)
+    .eq('status', 'fulfilled')
+    .order('created_at', { ascending: false });
+
+  const allDreams = [...(dreams || []), ...(fulfilled.data || [])];
+
+  if (!profile && allDreams.length === 0) {
+    showNotFound();
+    return;
+  }
+
+  renderProfile(profile || {}, allDreams);
+  document.getElementById('loading').style.display = 'none';
+}
+
+function renderProfile(profile, dreams) {
+  const name = profile.nickname || 'Dreamer';
+  document.getElementById('profile-name').textContent = name;
+  document.getElementById('profile-avatar').textContent = name[0].toUpperCase();
+  document.title = `${name} — Dream Grid`;
+
+  if (profile.bio) {
+    document.getElementById('profile-bio').textContent = profile.bio;
+    document.getElementById('profile-bio').style.display = 'block';
+  }
+
+  const socials = [
+    profile.instagram_url ? { url: profile.instagram_url, icon: '📷', label: 'Instagram' } : null,
+    profile.twitter_url ? { url: profile.twitter_url, icon: '🐦', label: 'X / Twitter' } : null,
+    profile.tiktok_url ? { url: profile.tiktok_url, icon: '🎵', label: 'TikTok' } : null,
+    profile.website_url ? { url: profile.website_url, icon: '🔗', label: 'Website' } : null,
+  ].filter(Boolean);
+  if (socials.length) {
+    document.getElementById('profile-socials').innerHTML = socials.map(s =>
+      `<a class="profile-social-link" href="${s.url}" target="_blank" rel="noopener noreferrer" title="${s.label}">${s.icon}</a>`
+    ).join('');
+  }
+
+  document.getElementById('dream-count').textContent = dreams.length;
+  document.getElementById('dream-count-plural').textContent = dreams.length === 1 ? '' : 's';
+  document.getElementById('total-likes').textContent = dreams.reduce((a, d) => a + (d.likes_count || 0), 0);
+
+  renderDreams(dreams);
+}
+
+function renderDreams(dreams) {
+  const grid = document.getElementById('dreams-grid');
+
+  if (!dreams.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="es-icon">🌙</div>
+        <h3>No dreams shared yet</h3>
+        <p>This dreamer hasn't claimed a spot on the map yet.</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = dreams.map(dream => {
+    const tier = dream.cells?.tier || 'basic';
+    const emoji = tierEmojis[tier] || '✨';
+    const date = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const safePhotoUrl = dream.photo_url ? dream.photo_url.replace(/"/g, '%22') : '';
+
+    const photoHtml = dream.photo_url
+      ? `<div class="card-photo" style="background-image:url(&quot;${safePhotoUrl}&quot;)">
+           <span class="card-tier-badge tier-${tier}">${tierLabels[tier]}</span>
+           <span class="card-status status-${dream.status}">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
+         </div>`
+      : `<div class="card-photo-placeholder">
+           ${emoji}
+           <span class="card-tier-badge tier-${tier}" style="position:absolute;top:12px;left:12px;">${tierLabels[tier]}</span>
+           <span class="card-status status-${dream.status}" style="position:absolute;top:12px;right:12px;">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
+         </div>`;
+
+    return `
+      <a class="dream-card" href="/dream/${dream.id}">
+        ${photoHtml}
+        <div class="card-body">
+          <div class="card-cell">Cell #${dream.cell_id}</div>
+          <div class="card-title">${dream.title}</div>
+          <div class="card-desc">${dream.description || ''}</div>
+          <div class="card-footer">
+            <div class="card-likes">❤️ ${dream.likes_count || 0}</div>
+            <div class="card-date">${date}</div>
+          </div>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
+
+function showNotFound() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('profile-hero').innerHTML = `
+    <div class="profile-avatar-big">✦</div>
+    <h1>Dreamer not found</h1>
+    <p class="profile-bio" style="display:block;">This dreamer doesn't exist, or their profile is no longer available.</p>
+  `;
+  document.getElementById('dreams-grid').innerHTML = '';
+  document.querySelector('.section-label').style.display = 'none';
+}
+
+init();
+</script>
+</body>
+</html>
