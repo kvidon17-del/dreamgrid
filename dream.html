@@ -203,6 +203,18 @@
   .btn-contact-dreamer:hover { background: rgba(244,114,182,0.22); border-color: rgba(244,114,182,0.5); }
   .btn-contact-dreamer:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  .report-link-wrap { margin-bottom: 28px; }
+  .report-link { font-size: 12px; color: rgba(255,255,255,0.3); text-decoration: none; transition: color 0.2s; }
+  .report-link:hover { color: rgba(248,113,113,0.8); }
+
+  .form-group select {
+    width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff;
+    font-size: 14px; outline: none; font-family: 'Inter',sans-serif; cursor: pointer;
+  }
+  .form-group select:focus { border-color: rgba(167,139,250,0.5); }
+  .form-group select option { background: #0f1228; }
+
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
   .modal-overlay.active { opacity: 1; pointer-events: all; }
   .modal { background: #0f1228; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius-lg); padding: 36px; width: 100%; max-width: 460px; position: relative; transform: translateY(20px); transition: transform 0.3s; max-height: 90vh; overflow-y: auto; }
@@ -398,6 +410,9 @@
       ✉️ Contact the Dreamer
     </button>
   </div>
+  <div class="report-link-wrap">
+    <a href="#" class="report-link" onclick="event.preventDefault(); openReportModal();">🚩 Report this dream</a>
+  </div>
 
   <!-- Share section -->
   <div class="share-section" id="share-section" style="display:none;">
@@ -451,6 +466,30 @@
       <div class="char-count"><span id="contact-char-count">0</span>/2000</div>
     </div>
     <button class="btn-next" id="btn-send-contact" onclick="sendContactMessage()">Send message</button>
+  </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="report-modal-overlay" onclick="closeReportModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeReportModal()">✕</button>
+    <div class="modal-title">🚩 Report this dream</div>
+    <div class="modal-sub">Let us know what's wrong — a real person reviews every report.</div>
+    <div class="form-group">
+      <label>Reason</label>
+      <select id="report-reason">
+        <option value="Inappropriate content">Inappropriate content</option>
+        <option value="Spam or fake">Spam or fake</option>
+        <option value="Harassment or abuse">Harassment or abuse</option>
+        <option value="Impersonation">Impersonation</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Additional details (optional)</label>
+      <textarea id="report-details" maxlength="1000" placeholder="Anything else that would help us understand..."></textarea>
+    </div>
+    <button class="btn-next" id="btn-send-report" onclick="sendReport()" style="background:linear-gradient(135deg,#dc2626,#f472b6);">Submit report</button>
   </div>
 </div>
 
@@ -763,6 +802,47 @@ async function sendContactMessage() {
   closeContactModal();
   btn.disabled = false;
   btn.textContent = 'Send message';
+}
+
+function openReportModal() {
+  document.getElementById('report-reason').value = 'Inappropriate content';
+  document.getElementById('report-details').value = '';
+  document.getElementById('report-modal-overlay').classList.add('active');
+}
+function closeReportModal() {
+  document.getElementById('report-modal-overlay').classList.remove('active');
+}
+function closeReportModalOutside(e) {
+  if (e.target === document.getElementById('report-modal-overlay')) closeReportModal();
+}
+
+async function sendReport() {
+  const reason = document.getElementById('report-reason').value;
+  const details = document.getElementById('report-details').value.trim();
+
+  const btn = document.getElementById('btn-send-report');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  const { data, error } = await sb.functions.invoke('report-dream', {
+    body: {
+      dreamId: currentDream.id,
+      reason,
+      details,
+      reporterEmail: currentUser ? currentUser.email : null,
+    },
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Submit report';
+
+  if (error || !data?.success) {
+    showToast("Couldn't submit — please try again in a moment.");
+    return;
+  }
+
+  showToast('✅ Report submitted — thank you for helping keep Dream Grid safe.');
+  closeReportModal();
 }
 
 function showNotFound() {

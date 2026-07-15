@@ -739,6 +739,18 @@ function goToLocationStep() {
 }
 const TIER_DESC_LIMIT = { basic: 300, standard: 1000, premium: 1000, vip: 1500 };
 
+// Basic first-line filter for the most obvious profanity/slurs/spam terms.
+// Not exhaustive — the real safety net is the "Report this dream" button on each dream page.
+const BLOCKED_WORDS = [
+  'fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut',
+  'nigger','nigga','faggot','fag','retard','spic','chink','kike','tranny',
+  'porn','xxx','onlyfans','viagra','cialis','crypto giveaway','bit.ly','click here to win',
+];
+function containsBlockedWords(text) {
+  const lower = text.toLowerCase();
+  return BLOCKED_WORDS.some(w => lower.includes(w));
+}
+
 function goToStep2() {
   if (selectedLat === null) return showToast('Please pick a spot on the map first!', 'error');
   hideAllSteps();
@@ -758,6 +770,9 @@ function goToStep3() {
   const desc = document.getElementById('dream-desc').value.trim();
   if (!title) return showToast('Please enter a dream title!', 'error');
   if (!desc) return showToast('Please describe your dream!', 'error');
+  if (containsBlockedWords(title + ' ' + desc)) {
+    return showToast('Please remove inappropriate language before continuing.', 'error');
+  }
   hideAllSteps();
   document.getElementById('step-3').style.display = 'block';
   updateStepBars(4);
@@ -1162,6 +1177,9 @@ async function saveEditedDream() {
   const desc = document.getElementById('edit-dream-desc').value.trim();
   if (!title) return showToast('Please enter a dream title!', 'error');
   if (!desc) return showToast('Please describe your dream!', 'error');
+  if (containsBlockedWords(title + ' ' + desc)) {
+    return showToast('Please remove inappropriate language before continuing.', 'error');
+  }
 
   const videoUrl = document.getElementById('edit-dream-video-url')?.value?.trim() || null;
   const photoUrl = getEditPhotoUrl();
