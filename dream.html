@@ -674,8 +674,8 @@ function renderDream(dream) {
 
   renderDreamerCard();
 
-  // Hide the contact button on your own dream
-  if (currentUser && currentUser.id === dream.user_id) {
+  // Hide the contact button on your own dream, or if this dreamer turned contact off
+  if ((currentUser && currentUser.id === dream.user_id) || currentDreamerProfile.allow_contact === false) {
     document.getElementById('btn-contact-dreamer').style.display = 'none';
   }
 }

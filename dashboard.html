@@ -106,6 +106,15 @@
   .profile-edit-form { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-top: 14px; }
   .profile-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   .profile-edit-grid .form-group.full { grid-column: 1/-1; }
+  .contact-toggle-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 4px; }
+  .toggle-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.15); border-radius: 24px; transition: 0.2s; }
+  .toggle-slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+  .toggle-switch input:checked + .toggle-slider { background: var(--grad-btn); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+  .toggle-title { font-size: 14px; font-weight: 600; color: #fff; }
+  .toggle-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .profile-avatar-big { width: 72px; height: 72px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.3); }
   .profile-info h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
   .profile-info p { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
@@ -335,6 +344,16 @@
           <div class="form-group">
             <label>Website</label>
             <input type="url" id="edit-website" placeholder="https://yoursite.com">
+          </div>
+          <div class="form-group full contact-toggle-row">
+            <label class="toggle-switch">
+              <input type="checkbox" id="edit-allow-contact" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <div>
+              <div class="toggle-title">Allow other dreamers to contact me</div>
+              <div class="toggle-sub">When off, the "Contact the Dreamer" button won't appear on any of your dreams.</div>
+            </div>
           </div>
         </div>
         <button class="btn-next" onclick="saveProfile()">Save profile</button>
@@ -631,6 +650,7 @@ function populateUI(user) {
   document.getElementById('edit-twitter').value = userProfile.twitter_url || '';
   document.getElementById('edit-tiktok').value = userProfile.tiktok_url || '';
   document.getElementById('edit-website').value = userProfile.website_url || '';
+  document.getElementById('edit-allow-contact').checked = userProfile.allow_contact !== false;
   updateCharCount('edit-bio', 'bio-count', 200);
 }
 
@@ -655,6 +675,7 @@ async function saveProfile() {
     twitter_url: document.getElementById('edit-twitter').value.trim() || null,
     tiktok_url: document.getElementById('edit-tiktok').value.trim() || null,
     website_url: document.getElementById('edit-website').value.trim() || null,
+    allow_contact: document.getElementById('edit-allow-contact').checked,
   };
   const { error } = await sb.from('profiles').upsert(updates);
   if (error) { showToast('Could not save profile. Try again.', 'error'); return; }
