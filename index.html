@@ -206,6 +206,9 @@
   .btn-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; cursor: pointer; padding: 8px; opacity: 0.55; transition: opacity 0.2s; line-height: 1; }
   .btn-eye:hover { opacity: 1; }
   .forgot-password-link { text-align: right; margin-top: 8px; }
+  .age-check-row { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0; }
+  .age-check-row input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: #7c5cf6; flex-shrink: 0; cursor: pointer; }
+  .age-check-row label { font-size: 12.5px; color: var(--muted); line-height: 1.5; cursor: pointer; }
   .forgot-password-link a, .back-to-signin a { font-size: 13px; color: #a78bfa; text-decoration: none; }
   .forgot-password-link a:hover, .back-to-signin a:hover { text-decoration: underline; }
   .back-to-signin { text-align: center; margin-top: 16px; }
@@ -450,6 +453,10 @@
             <button type="button" class="btn-eye" onclick="togglePasswordVisibility('signup-password', this)">👁</button>
           </div>
         </div>
+        <div class="age-check-row">
+          <input type="checkbox" id="signup-age-check">
+          <label for="signup-age-check">I confirm I am 18 years of age or older</label>
+        </div>
         <button type="submit" class="btn-submit">Create Account</button>
       </form>
     </div>
@@ -623,11 +630,16 @@ function clearMsg() {
 async function signUp() {
   const email = document.getElementById('signup-email').value.trim();
   const password = document.getElementById('signup-password').value;
+  const ageConfirmed = document.getElementById('signup-age-check').checked;
   if (!email || !password) return showMsg('Please fill in all fields.', 'error');
   if (password.length < 6) return showMsg('Password must be at least 6 characters.', 'error');
+  if (!ageConfirmed) return showMsg('Please confirm you are 18 years of age or older.', 'error');
   const btn = document.querySelector('#form-signup .btn-submit');
   btn.disabled = true; btn.textContent = 'Creating account...';
-  const { error } = await sb.auth.signUp({ email, password });
+  const { error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { age_confirmed_at: new Date().toISOString() } },
+  });
   btn.disabled = false; btn.textContent = 'Create Account';
   if (error) return showMsg(error.message, 'error');
   showMsg('✓ Account created! Please check your email to confirm.', 'success');
