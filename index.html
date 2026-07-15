@@ -209,6 +209,8 @@
   .age-check-row { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0; }
   .age-check-row input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: #7c5cf6; flex-shrink: 0; cursor: pointer; }
   .age-check-row label { font-size: 12.5px; color: var(--muted); line-height: 1.5; cursor: pointer; }
+  .age-check-row label a { color: #a78bfa; }
+  .age-check-row label a:hover { text-decoration: underline; }
   .forgot-password-link a, .back-to-signin a { font-size: 13px; color: #a78bfa; text-decoration: none; }
   .forgot-password-link a:hover, .back-to-signin a:hover { text-decoration: underline; }
   .back-to-signin { text-align: center; margin-top: 16px; }
@@ -456,10 +458,9 @@
         </div>
         <div class="age-check-row">
           <input type="checkbox" id="signup-age-check">
-          <label for="signup-age-check">I confirm I am 18 years of age or older</label>
+          <label for="signup-age-check">I am 18 years of age or older, and I have read and agree to the <a href="/privacy" target="_blank" onclick="event.stopPropagation();">Privacy Policy</a></label>
         </div>
         <button type="submit" class="btn-submit">Create Account</button>
-        <p style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:12px;">By creating an account, you agree to our <a href="/privacy" target="_blank" style="color:#a78bfa;">Privacy Policy</a>.</p>
       </form>
     </div>
     <div id="form-signin" style="display:none;">
@@ -635,7 +636,7 @@ async function signUp() {
   const ageConfirmed = document.getElementById('signup-age-check').checked;
   if (!email || !password) return showMsg('Please fill in all fields.', 'error');
   if (password.length < 6) return showMsg('Password must be at least 6 characters.', 'error');
-  if (!ageConfirmed) return showMsg('Please confirm you are 18 years of age or older.', 'error');
+  if (!ageConfirmed) return showMsg('Please confirm you are 18+ and agree to the Privacy Policy.', 'error');
   const btn = document.querySelector('#form-signup .btn-submit');
   btn.disabled = true; btn.textContent = 'Creating account...';
   const { error } = await sb.auth.signUp({
