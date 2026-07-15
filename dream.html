@@ -599,12 +599,18 @@ function renderDream(dream) {
 
   // Meta
   const joined = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const dreamerName = currentDreamerProfile.nickname || 'Dreamer';
+  const dreamerName = currentUser ? (currentDreamerProfile.nickname || 'Dreamer') : 'Dreamer';
+  const metaAvatarHtml = currentUser
+    ? `<a class="meta-item" href="/dreamer/${dream.user_id}" style="text-decoration:none;color:inherit;">
+         <div class="meta-avatar">✦</div>
+         <span>${dreamerName}</span>
+       </a>`
+    : `<a class="meta-item" href="#" onclick="event.preventDefault(); promptSignIn('Sign in to see who shared this dream!');" style="text-decoration:none;color:inherit;">
+         <div class="meta-avatar">✦</div>
+         <span>${dreamerName}</span>
+       </a>`;
   document.getElementById('dream-meta').innerHTML = `
-    <a class="meta-item" href="/dreamer/${dream.user_id}" style="text-decoration:none;color:inherit;">
-      <div class="meta-avatar">✦</div>
-      <span>${dreamerName}</span>
-    </a>
+    ${metaAvatarHtml}
     <div class="meta-divider"></div>
     <div class="meta-item">📅 ${joined}</div>
     <div class="meta-divider"></div>
@@ -684,6 +690,20 @@ function renderDreamerCard() {
   const p = currentDreamerProfile;
   if (!p.nickname && !p.bio && !p.instagram_url && !p.twitter_url && !p.tiktok_url && !p.website_url) return;
 
+  if (!currentUser) {
+    document.getElementById('dreamer-card-link').removeAttribute('href');
+    document.getElementById('dreamer-card-link').style.cursor = 'default';
+    document.getElementById('dreamer-avatar').textContent = '🔒';
+    document.getElementById('dreamer-name').textContent = 'Sign in to see who shared this dream';
+    document.getElementById('dreamer-bio').style.display = 'none';
+    document.getElementById('dreamer-socials').innerHTML = '';
+    document.getElementById('dreamer-view-all').textContent = 'Sign in →';
+    document.getElementById('dreamer-view-all').href = '#';
+    document.getElementById('dreamer-view-all').onclick = (e) => { e.preventDefault(); promptSignIn('Sign in to see the full profile!'); };
+    document.getElementById('dreamer-card').style.display = 'block';
+    return;
+  }
+
   const name = p.nickname || 'Dreamer';
   document.getElementById('dreamer-name').textContent = name;
   document.getElementById('dreamer-avatar').textContent = name[0].toUpperCase();
@@ -752,10 +772,14 @@ function updateCharCount(inputId, countId, max) {
   document.getElementById(countId).textContent = document.getElementById(inputId).value.length;
 }
 
+function promptSignIn(message) {
+  showToast(message);
+  setTimeout(() => window.location.href = '/', 1500);
+}
+
 function openContactModal() {
   if (!currentUser) {
-    showToast('Sign in to contact the dreamer!');
-    setTimeout(() => window.location.href = '/', 1500);
+    promptSignIn('Sign in to contact the dreamer!');
     return;
   }
   if (currentUser.id === currentDream.user_id) {

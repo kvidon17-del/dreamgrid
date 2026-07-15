@@ -178,6 +178,11 @@ async function init() {
   const { data: { user } } = await sb.auth.getUser();
   if (user) document.getElementById('nav-dashboard').style.display = 'inline-flex';
 
+  if (!user) {
+    showSignInRequired();
+    return;
+  }
+
   const { data: profile } = await sb.from('profiles').select('*').eq('id', dreamerId).single();
 
   const { data: dreams, error } = await sb.from('dreams')
@@ -279,6 +284,18 @@ function renderDreams(dreams) {
       </a>
     `;
   }).join('');
+}
+
+function showSignInRequired() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('profile-hero').innerHTML = `
+    <div class="profile-avatar-big">🔒</div>
+    <h1>Sign in to view this profile</h1>
+    <p class="profile-bio" style="display:block;">Dreamer profiles are visible to signed-in members of Dream Grid.</p>
+    <a href="/" class="btn-nav-primary" style="margin-top:8px;">✦ Sign In</a>
+  `;
+  document.getElementById('dreams-grid').innerHTML = '';
+  document.querySelector('.section-label').style.display = 'none';
 }
 
 function showNotFound() {
