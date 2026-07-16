@@ -210,6 +210,37 @@ async function init() {
   document.getElementById('loading').style.display = 'none';
 }
 
+const SOCIAL_PLATFORMS = [
+  { key: 'instagram_url', slug: 'instagram', label: 'Instagram' },
+  { key: 'twitter_url', slug: 'x', label: 'X / Twitter' },
+  { key: 'tiktok_url', slug: 'tiktok', label: 'TikTok' },
+  { key: 'telegram_url', slug: 'telegram', label: 'Telegram' },
+  { key: 'facebook_url', slug: 'facebook', label: 'Facebook' },
+  { key: 'whatsapp_url', slug: 'whatsapp', label: 'WhatsApp' },
+  { key: 'vk_url', slug: 'vk', label: 'VK' },
+  { key: 'viber_url', slug: 'viber', label: 'Viber' },
+  { key: 'wechat_url', slug: 'wechat', label: 'WeChat' },
+  { key: 'line_url', slug: 'line', label: 'LINE' },
+  { key: 'kakao_url', slug: 'kakaotalk', label: 'KakaoTalk' },
+  { key: 'website_url', slug: null, label: 'Website' },
+];
+
+function buildSocialIconsHtml(profile) {
+  return SOCIAL_PLATFORMS
+    .filter(p => profile[p.key])
+    .map(p => {
+      const value = profile[p.key];
+      const iconHtml = p.slug
+        ? `<img src="https://cdn.simpleicons.org/${p.slug}" alt="${p.label}" style="width:18px;height:18px;" onerror="this.style.opacity='0.25'">`
+        : '🔗';
+      if (p.key === 'wechat_url') {
+        return `<span class="profile-social-link" title="WeChat: ${value}" style="cursor:default;">${iconHtml}</span>`;
+      }
+      return `<a class="profile-social-link" href="${value}" target="_blank" rel="noopener noreferrer" title="${p.label}">${iconHtml}</a>`;
+    })
+    .join('');
+}
+
 function renderProfile(profile, dreams) {
   const name = profile.nickname || 'Dreamer';
   document.getElementById('profile-name').textContent = name;
@@ -221,17 +252,7 @@ function renderProfile(profile, dreams) {
     document.getElementById('profile-bio').style.display = 'block';
   }
 
-  const socials = [
-    profile.instagram_url ? { url: profile.instagram_url, icon: '📷', label: 'Instagram' } : null,
-    profile.twitter_url ? { url: profile.twitter_url, icon: '🐦', label: 'X / Twitter' } : null,
-    profile.tiktok_url ? { url: profile.tiktok_url, icon: '🎵', label: 'TikTok' } : null,
-    profile.website_url ? { url: profile.website_url, icon: '🔗', label: 'Website' } : null,
-  ].filter(Boolean);
-  if (socials.length) {
-    document.getElementById('profile-socials').innerHTML = socials.map(s =>
-      `<a class="profile-social-link" href="${s.url}" target="_blank" rel="noopener noreferrer" title="${s.label}">${s.icon}</a>`
-    ).join('');
-  }
+  document.getElementById('profile-socials').innerHTML = buildSocialIconsHtml(profile);
 
   document.getElementById('dream-count').textContent = dreams.length;
   document.getElementById('dream-count-plural').textContent = dreams.length === 1 ? '' : 's';

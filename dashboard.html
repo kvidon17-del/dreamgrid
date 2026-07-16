@@ -344,6 +344,38 @@
             <input type="url" id="edit-tiktok" placeholder="https://tiktok.com/@you">
           </div>
           <div class="form-group">
+            <label>Telegram</label>
+            <input type="url" id="edit-telegram" placeholder="https://t.me/you">
+          </div>
+          <div class="form-group">
+            <label>Facebook</label>
+            <input type="url" id="edit-facebook" placeholder="https://facebook.com/you">
+          </div>
+          <div class="form-group">
+            <label>WhatsApp</label>
+            <input type="url" id="edit-whatsapp" placeholder="https://wa.me/1234567890">
+          </div>
+          <div class="form-group">
+            <label>VK</label>
+            <input type="url" id="edit-vk" placeholder="https://vk.com/you">
+          </div>
+          <div class="form-group">
+            <label>Viber</label>
+            <input type="url" id="edit-viber" placeholder="https://invite.viber.com/...">
+          </div>
+          <div class="form-group">
+            <label>WeChat</label>
+            <input type="text" id="edit-wechat" placeholder="Your WeChat ID">
+          </div>
+          <div class="form-group">
+            <label>LINE</label>
+            <input type="url" id="edit-line" placeholder="https://line.me/ti/p/...">
+          </div>
+          <div class="form-group">
+            <label>KakaoTalk</label>
+            <input type="url" id="edit-kakao" placeholder="https://open.kakao.com/...">
+          </div>
+          <div class="form-group">
             <label>Website</label>
             <input type="url" id="edit-website" placeholder="https://yoursite.com">
           </div>
@@ -651,6 +683,14 @@ function populateUI(user) {
   document.getElementById('edit-instagram').value = userProfile.instagram_url || '';
   document.getElementById('edit-twitter').value = userProfile.twitter_url || '';
   document.getElementById('edit-tiktok').value = userProfile.tiktok_url || '';
+  document.getElementById('edit-telegram').value = userProfile.telegram_url || '';
+  document.getElementById('edit-facebook').value = userProfile.facebook_url || '';
+  document.getElementById('edit-whatsapp').value = userProfile.whatsapp_url || '';
+  document.getElementById('edit-vk').value = userProfile.vk_url || '';
+  document.getElementById('edit-viber').value = userProfile.viber_url || '';
+  document.getElementById('edit-wechat').value = userProfile.wechat_url || '';
+  document.getElementById('edit-line').value = userProfile.line_url || '';
+  document.getElementById('edit-kakao').value = userProfile.kakao_url || '';
   document.getElementById('edit-website').value = userProfile.website_url || '';
   document.getElementById('edit-allow-contact').checked = userProfile.allow_contact !== false;
   updateCharCount('edit-bio', 'bio-count', 200);
@@ -676,6 +716,14 @@ async function saveProfile() {
     instagram_url: document.getElementById('edit-instagram').value.trim() || null,
     twitter_url: document.getElementById('edit-twitter').value.trim() || null,
     tiktok_url: document.getElementById('edit-tiktok').value.trim() || null,
+    telegram_url: document.getElementById('edit-telegram').value.trim() || null,
+    facebook_url: document.getElementById('edit-facebook').value.trim() || null,
+    whatsapp_url: document.getElementById('edit-whatsapp').value.trim() || null,
+    vk_url: document.getElementById('edit-vk').value.trim() || null,
+    viber_url: document.getElementById('edit-viber').value.trim() || null,
+    wechat_url: document.getElementById('edit-wechat').value.trim() || null,
+    line_url: document.getElementById('edit-line').value.trim() || null,
+    kakao_url: document.getElementById('edit-kakao').value.trim() || null,
     website_url: document.getElementById('edit-website').value.trim() || null,
     allow_contact: document.getElementById('edit-allow-contact').checked,
   };

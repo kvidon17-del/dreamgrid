@@ -673,9 +673,10 @@ async function signIn() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = 'Sign In';
   if (error) return showMsg(error.message, 'error');
-  showMsg('✓ Welcome back! Redirecting...', 'success');
+  showMsg('✓ Welcome back!', 'success');
   updateNav(data.user);
-  setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
+  if (window.refreshDreamDotsForAuth) window.refreshDreamDotsForAuth();
+  setTimeout(() => { closeModal(); }, 900);
 }
 
 // ── Sign Out ──
@@ -761,11 +762,23 @@ async function signOut() {
     }
     generateDots(landPath2D, hitCtx, 1400);
 
-    // Signed-in visitors see real dreams; guests see a lively but non-clickable-to-real-dreams preview
-    const { data: { user } } = await sb.auth.getUser();
-    if (user) loadRealDreams();
-    else generateDecorativeDreamDots(landPath2D, hitCtx, 50);
+    cachedLandPath2D = landPath2D;
+    cachedHitCtx = hitCtx;
+    await refreshDreamDots();
   }
+  let cachedLandPath2D = null, cachedHitCtx = null;
+
+  async function refreshDreamDots() {
+    // Remove any previously-placed dream dots (real or decorative) so re-running this doesn't duplicate them
+    for (let i = dots.length - 1; i >= 0; i--) {
+      if (dots[i].isDream) dots.splice(i, 1);
+    }
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) await loadRealDreams();
+    else generateDecorativeDreamDots(cachedLandPath2D, cachedHitCtx, 50);
+  }
+  window.refreshDreamDotsForAuth = refreshDreamDots;
+
   loadMapDots();
 
   // Real dreams from Supabase — only shown to signed-in visitors
