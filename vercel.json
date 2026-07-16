@@ -2,7 +2,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/dream/:id", "destination": "/dream" },
+    { "source": "/dream/:id", "destination": "/api/dream?id=:id" },
     { "source": "/dreamer/:id", "destination": "/dreamer" }
   ]
 }
