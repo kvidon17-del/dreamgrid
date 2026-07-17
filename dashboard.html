@@ -1218,8 +1218,8 @@ async function saveCroppedAvatar() {
       btn.disabled = false; btn.textContent = '✓ Save photo';
       return;
     }
-    const fileName = `${currentUser.id}/avatar.jpg`;
-    const { error: uploadError } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+    const fileName = `${currentUser.id}/avatar_${Date.now()}.jpg`;
+    const { error: uploadError } = await sb.storage.from('dream-photos').upload(fileName, blob, { contentType: 'image/jpeg' });
     if (uploadError) {
       showToast('Upload failed. Try again.', 'error');
       btn.disabled = false; btn.textContent = '✓ Save photo';
