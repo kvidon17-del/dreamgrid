@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+// Safety net: if a Supabase password-recovery link lands on the homepage
+// instead of /reset-password, send it there immediately (before anything renders).
+if (window.location.hash && window.location.hash.includes('type=recovery')) {
+  window.location.replace('/reset-password' + window.location.hash);
+}
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dream Grid — The World's Map of Dreams</title>
@@ -885,9 +892,21 @@ async function signOut() {
 // ── Init ──
 checkUser();
 sb.auth.onAuthStateChange((_event, session) => {
+  if (_event === 'PASSWORD_RECOVERY') return; // handled on /reset-password, never treat as a normal login here
   updateNav(session?.user || null);
   if (session?.user) checkUser();
 });
+
+// ── Post-password-reset flow: show sign-in prompt after a successful reset ──
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('password_reset') === 'success') {
+    openModal('signin');
+    showMsg('✓ Password updated! Please sign in with your new password.', 'success');
+    // Clean the URL so a refresh doesn't re-show the message
+    window.history.replaceState({}, document.title, '/');
+  }
+})();
 </script>
 </body>
 </html>
