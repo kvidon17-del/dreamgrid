@@ -34,7 +34,8 @@
   .logo svg { width: 28px; height: 28px; }
   .nav-right { display: flex; align-items: center; gap: 16px; }
   .user-chip { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 40px; padding: 6px 16px 6px 6px; }
-  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; overflow: hidden; }
+  .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .user-email { font-size: 13px; color: var(--muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btn-signout { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
   .btn-signout:hover { color: #f87171; background: rgba(248,113,113,0.1); }
@@ -115,7 +116,11 @@
   .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
   .toggle-title { font-size: 14px; font-weight: 600; color: #fff; }
   .toggle-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .profile-avatar-big { width: 72px; height: 72px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.3); }
+  .profile-avatar-big { width: 72px; height: 72px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.3); overflow: hidden; }
+  .profile-avatar-big img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-avatar-wrap { position: relative; flex-shrink: 0; }
+  .avatar-upload-btn { position: absolute; bottom: -2px; right: -2px; width: 26px; height: 26px; border-radius: 50%; background: #1a1d3a; border: 2px solid var(--bg2, #0c0f24); display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; transition: transform 0.15s; }
+  .avatar-upload-btn:hover { transform: scale(1.1); }
   .profile-info h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
   .profile-info p { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
   .profile-joined { font-size: 12px; color: rgba(255,255,255,0.25); }
@@ -310,7 +315,11 @@
         <div class="section-tag">Account details</div>
       </div>
       <div class="profile-card">
-        <div class="profile-avatar-big" id="profile-avatar-big">?</div>
+        <div class="profile-avatar-wrap">
+          <div class="profile-avatar-big" id="profile-avatar-big">?</div>
+          <label class="avatar-upload-btn" for="avatar-file-input" title="Change photo">📷</label>
+          <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="handleAvatarSelect(event)">
+        </div>
         <div class="profile-info">
           <h3 id="profile-name">Loading...</h3>
           <p id="profile-email">Loading...</p>
@@ -665,10 +674,10 @@ function populateUI(user) {
   const emailName = email.split('@')[0];
   const displayName = userProfile.nickname || emailName;
   const initial = displayName[0].toUpperCase();
-  document.getElementById('user-avatar').textContent = initial;
+  renderAvatar('user-avatar', userProfile.avatar_url, initial);
   document.getElementById('user-email-nav').textContent = email;
   document.getElementById('welcome-name').textContent = displayName;
-  document.getElementById('profile-avatar-big').textContent = initial;
+  renderAvatar('profile-avatar-big', userProfile.avatar_url, initial);
   document.getElementById('profile-name').textContent = displayName;
   document.getElementById('profile-email').textContent = email;
   const joined = new Date(user.created_at);
@@ -694,6 +703,16 @@ function populateUI(user) {
   document.getElementById('edit-website').value = userProfile.website_url || '';
   document.getElementById('edit-allow-contact').checked = userProfile.allow_contact !== false;
   updateCharCount('edit-bio', 'bio-count', 200);
+}
+
+// Renders either the user's uploaded photo or a colored initial into an avatar element
+function renderAvatar(elementId, avatarUrl, initial) {
+  const el = document.getElementById(elementId);
+  if (avatarUrl) {
+    el.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+  } else {
+    el.textContent = initial;
+  }
 }
 
 function switchDashTab(tab) {
@@ -1070,6 +1089,44 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
     img.src = url;
   });
+}
+
+// ── AVATAR UPLOAD ──
+async function handleAvatarSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) return showToast("That photo is huge — try a different one.", 'error');
+
+  showToast('Uploading photo…', 'success');
+  let blob;
+  try {
+    blob = await compressImage(file, 500, 0.85);
+  } catch (e) {
+    showToast("Couldn't read that photo — try a different one.", 'error');
+    return;
+  }
+
+  // Fixed filename per user (inside their own folder) so re-uploading just overwrites it
+  const fileName = `${currentUser.id}/avatar.jpg`;
+  const { error: uploadError } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+  if (uploadError) {
+    showToast('Upload failed. Try again.', 'error');
+    return;
+  }
+
+  const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
+  // Cache-bust so the new photo shows immediately everywhere, instead of a cached old one
+  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+  const { error: saveError } = await sb.from('profiles').upsert({ id: currentUser.id, avatar_url: avatarUrl });
+  if (saveError) {
+    showToast('Photo uploaded but could not be saved. Try again.', 'error');
+    return;
+  }
+
+  userProfile.avatar_url = avatarUrl;
+  populateUI(currentUser);
+  showToast('✅ Profile photo updated!', 'success');
 }
 
 // ── GALLERY UPLOAD (VIP) ──

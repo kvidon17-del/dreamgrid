@@ -178,7 +178,8 @@
   .dreamer-card-header:hover { opacity: 0.8; }
   .dreamer-view-all { display: inline-block; margin-top: 14px; font-size: 13px; color: #a78bfa; text-decoration: none; font-weight: 600; }
   .dreamer-view-all:hover { text-decoration: underline; }
-  .dreamer-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .dreamer-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad-btn); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; overflow: hidden; }
+  .dreamer-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .dreamer-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .dreamer-name { font-size: 16px; font-weight: 700; color: #fff; }
   .dreamer-bio { font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.6; margin-bottom: 14px; }
@@ -752,7 +753,12 @@ function renderDreamerCard() {
 
   const name = p.nickname || 'Dreamer';
   document.getElementById('dreamer-name').textContent = name;
-  document.getElementById('dreamer-avatar').textContent = name[0].toUpperCase();
+  const avatarEl = document.getElementById('dreamer-avatar');
+  if (p.avatar_url) {
+    avatarEl.innerHTML = `<img src="${p.avatar_url}" alt="${name}">`;
+  } else {
+    avatarEl.textContent = name[0].toUpperCase();
+  }
   document.getElementById('dreamer-card-link').href = `/dreamer/${currentDream.user_id}`;
   document.getElementById('dreamer-view-all').href = `/dreamer/${currentDream.user_id}`;
 

@@ -73,7 +73,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .user-avatar {
     width: 34px; height: 34px; border-radius: 50%;
     background: var(--grad-btn); display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+    font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; overflow: hidden;
   }
   .user-email { font-size: 13px; color: var(--muted); }
   .btn-signout { color: var(--muted); font-size: 13px; background: none; border: none; cursor: pointer; transition: color 0.2s; }
@@ -554,7 +554,7 @@ async function checkUser() {
   currentUser = user;
   let profile = null;
   if (user) {
-    const { data } = await sb.from('profiles').select('nickname').eq('id', user.id).single();
+    const { data } = await sb.from('profiles').select('nickname, avatar_url').eq('id', user.id).single();
     profile = data;
   }
   updateNav(user, profile);
@@ -578,7 +578,12 @@ function updateNav(user, profile) {
     const email = user.email || '';
     const displayName = profile?.nickname || email;
     document.getElementById('user-email-nav').textContent = displayName;
-    document.getElementById('user-avatar').textContent = displayName[0].toUpperCase();
+    const avatarEl = document.getElementById('user-avatar');
+    if (profile?.avatar_url) {
+      avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      avatarEl.textContent = displayName[0].toUpperCase();
+    }
   } else {
     document.getElementById('nav-guest').style.display = 'flex';
     document.getElementById('nav-user').style.display = 'none';
