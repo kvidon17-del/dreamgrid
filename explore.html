@@ -42,6 +42,9 @@
   }
   .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 800; color: var(--text); text-decoration: none; }
   .logo svg { width: 28px; height: 28px; }
+  .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+  .nav-links a:hover, .nav-links a.active { color: var(--text); }
   .nav-right { display: flex; align-items: center; gap: 14px; }
   .btn-nav { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
   .btn-nav:hover { color: #fff; }
@@ -232,6 +235,7 @@
 
   @media (max-width: 768px) {
     nav { padding: 0 20px; }
+    .nav-links { display: none; }
     .explore-map-wrap { margin: 0 20px 24px; height: 220px; }
     .page-hero { padding: 88px 20px 32px; }
     .filters-bar { padding: 16px 20px; }
@@ -255,6 +259,13 @@
     <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
     Dream Grid
   </a>
+  <ul class="nav-links">
+    <li><a href="/explore" class="active">Explore Dreams</a></li>
+    <li><a href="/how-it-works">How It Works</a></li>
+    <li><a href="/pricing">Pricing</a></li>
+    <li><a href="/fulfilled">Dreams Fulfilled</a></li>
+    <li><a href="/about">About</a></li>
+  </ul>
   <div class="nav-right">
     <a href="/" class="btn-nav">← Home</a>
     <a href="/dashboard" class="btn-nav-primary" id="nav-dashboard" style="display:none;">✦ My Dashboard</a>

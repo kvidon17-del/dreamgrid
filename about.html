@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+if (window.location.hash && window.location.hash.includes('type=recovery')) {
+  window.location.replace('/reset-password' + window.location.hash);
+}
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About — Dream Grid</title>
+<meta name="description" content="The story behind Dream Grid — the world's living map of dreams.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dreamgrid.ink/about">
+<meta property="og:title" content="About — Dream Grid">
+<meta property="og:description" content="The story behind Dream Grid — the world's living map of dreams.">
+<meta property="og:image" content="https://dreamgrid.ink/og-default.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="About — Dream Grid">
+<meta name="twitter:image" content="https://dreamgrid.ink/og-default.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --bg2: #0c0f24; --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-hi: rgba(167,139,250,0.35);
+    --text: #ffffff; --muted: rgba(255,255,255,0.45);
+    --accent: #7c5cf6; --accent2: #f472b6; --gold: #fbbf24;
+    --grad-title: linear-gradient(135deg,#e0d7ff 0%,#c4b5fd 20%,#f9a8d4 55%,#fcd34d 80%,#fde68a 100%);
+    --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --radius-sm: 10px; --radius: 16px; --radius-lg: 24px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(124,92,246,0.4); border-radius: 3px; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 68px;
+    background: rgba(7,9,24,0.85); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 800; color: var(--text); text-decoration: none; }
+  .logo svg { width: 30px; height: 30px; }
+  .nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+  .nav-links a:hover, .nav-links a.active { color: var(--text); }
+  .nav-actions { display: flex; align-items: center; gap: 14px; }
+  .btn-ghost { color: var(--muted); font-size: 14px; background: none; border: none; cursor: pointer; transition: color 0.2s; }
+  .btn-ghost:hover { color: var(--text); }
+  .btn-cta-nav {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--grad-btn); color: #fff; text-decoration: none;
+    padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+    border: none; cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+    box-shadow: 0 4px 20px rgba(124,92,246,0.3);
+  }
+  .btn-cta-nav:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* USER MENU */
+  .user-menu { display: flex; align-items: center; gap: 10px; }
+  .user-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--grad-btn); display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; overflow: hidden;
+  }
+  .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .user-email { font-size: 13px; color: var(--muted); }
+  .btn-signout { color: var(--muted); font-size: 13px; background: none; border: none; cursor: pointer; transition: color 0.2s; }
+  .btn-signout:hover { color: #f87171; }
+
+  /* PAGE HERO */
+  .page-hero { padding: 130px 24px 20px; text-align: center; background: linear-gradient(180deg, rgba(99,60,220,0.1) 0%, transparent 100%); }
+  .page-hero h1 { font-family: 'Sora',sans-serif; font-size: clamp(30px,4.5vw,48px); font-weight: 900; color: #fff; letter-spacing: -1px; }
+  .page-hero h1 span { background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  /* SECTIONS */
+  .section { padding: 60px 24px 100px; }
+  .section-inner { max-width: 1080px; margin: 0 auto; }
+  .section-eyebrow { text-align: center; color: #a78bfa; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 14px; }
+  .section-title { font-family: 'Sora',sans-serif; text-align: center; font-size: clamp(32px,5vw,48px); font-weight: 800; color: #fff; letter-spacing: -1px; margin-bottom: 14px; }
+  .section-desc { text-align: center; color: var(--muted); font-size: 16px; max-width: 480px; margin: 0 auto 64px; line-height: 1.8; }
+
+  /* HOW IT WORKS */
+  .how-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+  .how-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 36px 28px; transition: border-color 0.3s, transform 0.3s; position: relative; overflow: hidden; }
+  .how-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--grad-title); opacity: 0; transition: opacity 0.3s; }
+  .how-card:hover { border-color: var(--border-hi); transform: translateY(-6px); }
+  .how-card:hover::before { opacity: 1; }
+  .how-num { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 20px; }
+  .how-emoji { font-size: 36px; margin-bottom: 18px; display: block; }
+  .how-card h3 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+  .how-card p { font-size: 14px; color: var(--muted); line-height: 1.75; }
+
+  /* CTA */
+  .cta-section { padding: 20px 24px 100px; }
+  .cta-box { max-width: 760px; margin: 0 auto; text-align: center; background: linear-gradient(135deg,rgba(99,60,220,0.2),rgba(168,85,247,0.15)); border: 1px solid rgba(167,139,250,0.3); border-radius: 28px; padding: 64px 48px; position: relative; overflow: hidden; }
+  .cta-box h2 { font-family: 'Sora',sans-serif; font-size: clamp(28px,4vw,42px); font-weight: 800; color: #fff; margin-bottom: 16px; letter-spacing: -0.5px; }
+  .cta-box p { font-size: 16px; color: var(--muted); margin-bottom: 36px; }
+  .cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn-hero-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--grad-btn); color: #fff; text-decoration: none; padding: 16px 36px; border-radius: var(--radius); font-size: 16px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 8px 32px rgba(99,60,220,0.35); transition: all 0.25s; }
+  .btn-hero-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(99,60,220,0.5); }
+  .btn-hero-secondary { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #fff; text-decoration: none; padding: 16px 36px; border-radius: var(--radius); font-size: 16px; font-weight: 500; border: 1.5px solid rgba(255,255,255,0.15); cursor: pointer; transition: all 0.25s; }
+  .btn-hero-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+
+  /* FOOTER */
+  footer { border-top: 1px solid var(--border); padding: 40px 48px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .footer-logo { display: flex; align-items: center; gap: 8px; font-family: 'Sora',sans-serif; font-size: 15px; font-weight: 800; color: var(--muted); text-decoration: none; }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: #fff; }
+  .footer-copy { font-size: 12px; color: rgba(255,255,255,0.2); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+  .modal { background: #0f1228; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius-lg); padding: 40px; width: 100%; max-width: 420px; position: relative; transform: translateY(20px); transition: transform 0.3s; }
+  .modal-overlay.active .modal { transform: translateY(0); }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; transition: color 0.2s; }
+  .modal-close:hover { color: #fff; }
+  .modal h2 { font-family: 'Sora',sans-serif; font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .modal p { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+  .modal-tabs { display: flex; gap: 0; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
+  .modal-tab { flex: 1; padding: 10px; background: none; border: none; color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .modal-tab.active { color: #a78bfa; border-bottom-color: #a78bfa; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .form-group input { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; font-family: 'Inter',sans-serif; }
+  .form-group input:focus { border-color: rgba(167,139,250,0.5); }
+  .password-field { position: relative; }
+  .password-field input { padding-right: 44px; }
+  .btn-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; cursor: pointer; padding: 8px; opacity: 0.55; transition: opacity 0.2s; line-height: 1; }
+  .btn-eye:hover { opacity: 1; }
+  .forgot-password-link { text-align: right; margin-top: 8px; }
+  .age-check-row { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0; }
+  .age-check-row input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: #7c5cf6; flex-shrink: 0; cursor: pointer; }
+  .age-check-row label { font-size: 12.5px; color: var(--muted); line-height: 1.5; cursor: pointer; }
+  .age-check-row label a { color: #a78bfa; }
+  .age-check-row label a:hover { text-decoration: underline; }
+  .forgot-password-link a, .back-to-signin a { font-size: 13px; color: #a78bfa; text-decoration: none; }
+  .forgot-password-link a:hover, .back-to-signin a:hover { text-decoration: underline; }
+  .back-to-signin { text-align: center; margin-top: 16px; }
+  .modal-desc-small { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+  .btn-submit { width: 100%; padding: 14px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-top: 8px; font-family: 'Inter',sans-serif; }
+  .btn-submit:hover { opacity: 0.88; }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-msg { margin-top: 12px; font-size: 13px; text-align: center; padding: 10px; border-radius: var(--radius-sm); }
+  .form-msg.success { color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); }
+  .form-msg.error { color: #f87171; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2); }
+
+  /* FADE UP */
+  .fade-up { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 900px) {
+    nav { padding: 0 24px; }
+    .nav-links { display: none; }
+    .how-grid { grid-template-columns: 1fr; }
+    footer { flex-direction: column; padding: 32px 24px; }
+  }
+  @media (max-width: 600px) {
+    .cta-box { padding: 40px 24px; }
+  }
+</style>
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="logo">
+    <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+    Dream Grid
+  </a>
+  <ul class="nav-links">
+    <li><a href="/explore">Explore Dreams</a></li>
+    <li><a href="/how-it-works">How It Works</a></li>
+    <li><a href="/pricing">Pricing</a></li>
+    <li><a href="/fulfilled">Dreams Fulfilled</a></li>
+    <li><a href="/about" class="active">About</a></li>
+  </ul>
+  <div class="nav-actions">
+    <div id="nav-guest" style="display:flex;align-items:center;gap:14px;">
+      <button class="btn-ghost" onclick="openModal('signin')">Sign In</button>
+      <button class="btn-cta-nav" onclick="openModal('signup')">✦ Share Your Dream</button>
+    </div>
+    <div id="nav-user" style="display:none;">
+      <div class="user-menu">
+        <a href="/dashboard" style="display:flex;align-items:center;gap:10px;text-decoration:none;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:40px;padding:6px 16px 6px 6px;transition:all 0.2s;" onmouseover="this.style.background='rgba(167,139,250,0.2)'" onmouseout="this.style.background='rgba(167,139,250,0.1)'">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <span class="user-email" id="user-email-nav"></span>
+        </a>
+        <a href="/dashboard" style="display:inline-flex;align-items:center;gap:6px;background:var(--grad-btn);color:#fff;text-decoration:none;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(124,92,246,0.3);transition:all 0.2s;">
+          ✦ My Dashboard
+        </a>
+        <button class="btn-signout" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <h1>✦ About <span>Dream Grid</span> ✦</h1>
+</div>
+
+<!-- PLACEHOLDER -->
+<section class="section" style="padding-top:20px;">
+  <div class="section-inner" style="text-align:center;">
+    <p class="section-desc fade-up" style="margin-bottom:0;">Our story is coming soon ✦</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <a href="/" class="footer-logo">
+    <svg width="20" height="20" viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg2)"/><defs><linearGradient id="lg2" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+    Dream Grid
+  </a>
+  <div class="footer-links">
+    <a href="/how-it-works">How it works</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/fulfilled">Stories</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="mailto:hello@dreamgrid.ink">Contact</a>
+  </div>
+  <p class="footer-copy">© 2025 Dream Grid — Every dream deserves its place in the world.</p>
+</footer>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>✦ Dream Grid</h2>
+    <p id="modal-desc">Join thousands of dreamers worldwide.</p>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+      <button class="modal-tab" id="tab-signin" onclick="switchTab('signin')">Sign In</button>
+    </div>
+    <div id="form-signup">
+      <form onsubmit="event.preventDefault(); signUp();" autocomplete="on">
+        <div class="form-group"><label>Email</label><input type="email" id="signup-email" name="email" placeholder="your@email.com" autocomplete="email"></div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="password-field">
+            <input type="password" id="signup-password" name="password" placeholder="Min. 6 characters" autocomplete="new-password">
+            <button type="button" class="btn-eye" onclick="togglePasswordVisibility('signup-password', this)">👁</button>
+          </div>
+        </div>
+        <div class="age-check-row">
+          <input type="checkbox" id="signup-age-check">
+          <label for="signup-age-check">I am 18 years of age or older, and I have read and agree to the <a href="/terms" target="_blank" onclick="event.stopPropagation();">Terms of Service</a> and <a href="/privacy" target="_blank" onclick="event.stopPropagation();">Privacy Policy</a></label>
+        </div>
+        <button type="submit" class="btn-submit">Create Account</button>
+      </form>
+    </div>
+    <div id="form-signin" style="display:none;">
+      <form onsubmit="event.preventDefault(); signIn();" autocomplete="on">
+        <div class="form-group"><label>Email</label><input type="email" id="signin-email" name="email" placeholder="your@email.com" autocomplete="email"></div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="password-field">
+            <input type="password" id="signin-password" name="password" placeholder="Your password" autocomplete="current-password">
+            <button type="button" class="btn-eye" onclick="togglePasswordVisibility('signin-password', this)">👁</button>
+          </div>
+          <div class="forgot-password-link"><a href="#" onclick="event.preventDefault(); showResetForm();">Forgot password?</a></div>
+        </div>
+        <button type="submit" class="btn-submit">Sign In</button>
+      </form>
+    </div>
+    <div id="form-reset" style="display:none;">
+      <p class="modal-desc-small">Enter your email and we'll send you a link to reset your password.</p>
+      <div class="form-group"><label>Email</label><input type="email" id="reset-email" placeholder="your@email.com"></div>
+      <button type="button" class="btn-submit" onclick="sendPasswordReset()">Send reset link</button>
+      <div class="back-to-signin"><a href="#" onclick="event.preventDefault(); showResetForm(false);">← Back to sign in</a></div>
+    </div>
+    <div id="form-msg" class="form-msg" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+// ── Supabase ──
+const { createClient } = supabase;
+const SUPABASE_URL = 'https://wnbgwonqpjwzdgcngkxi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Auth state ──
+let currentUser = null;
+async function checkUser() {
+  const { data: { user } } = await sb.auth.getUser();
+  currentUser = user;
+  let profile = null;
+  if (user) {
+    const { data } = await sb.from('profiles').select('nickname, avatar_url').eq('id', user.id).single();
+    profile = data;
+  }
+  updateNav(user, profile);
+  if (user) {
+    const navGuest = document.getElementById('nav-guest');
+    if (navGuest) {
+      navGuest.innerHTML = `
+        <a href="/dashboard" style="display:inline-flex;align-items:center;gap:6px;background:var(--grad-btn);color:#fff;text-decoration:none;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(124,92,246,0.3);">
+          ✦ My Dashboard
+        </a>
+      `;
+    }
+  }
+}
+
+function updateNav(user, profile) {
+  if (user) {
+    document.getElementById('nav-guest').style.display = 'none';
+    document.getElementById('nav-user').style.display = 'flex';
+    const email = user.email || '';
+    const displayName = profile?.nickname || email;
+    document.getElementById('user-email-nav').textContent = displayName;
+    const avatarEl = document.getElementById('user-avatar');
+    if (profile?.avatar_url) {
+      avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar">`;
+    } else {
+      avatarEl.textContent = displayName[0].toUpperCase();
+    }
+  } else {
+    document.getElementById('nav-guest').style.display = 'flex';
+    document.getElementById('nav-user').style.display = 'none';
+  }
+}
+
+// ── Modal ──
+function openModal(tab) {
+  document.getElementById('modal-overlay').classList.add('active');
+  switchTab(tab);
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+  clearMsg();
+}
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+function switchTab(tab) {
+  document.getElementById('form-reset').style.display = 'none';
+  document.querySelector('.modal-tabs').style.display = 'flex';
+  document.getElementById('form-signup').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('form-signin').style.display = tab === 'signin' ? 'block' : 'none';
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
+  clearMsg();
+}
+function showResetForm(show = true) {
+  clearMsg();
+  if (show) {
+    document.getElementById('form-signup').style.display = 'none';
+    document.getElementById('form-signin').style.display = 'none';
+    document.querySelector('.modal-tabs').style.display = 'none';
+    document.getElementById('form-reset').style.display = 'block';
+    document.getElementById('reset-email').value = document.getElementById('signin-email').value || '';
+  } else {
+    document.getElementById('form-reset').style.display = 'none';
+    switchTab('signin');
+  }
+}
+async function sendPasswordReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) return showMsg('Please enter your email.', 'error');
+  const btn = document.querySelector('#form-reset .btn-submit');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  btn.disabled = false; btn.textContent = 'Send reset link';
+  if (error) return showMsg(error.message, 'error');
+  showMsg('✓ Check your email for a password reset link.', 'success');
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  btn.textContent = isHidden ? '🙈' : '👁';
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('form-msg');
+  el.textContent = text;
+  el.className = 'form-msg ' + type;
+  el.style.display = 'block';
+}
+function clearMsg() {
+  document.getElementById('form-msg').style.display = 'none';
+}
+
+// ── Sign Up ──
+async function signUp() {
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const ageConfirmed = document.getElementById('signup-age-check').checked;
+  if (!email || !password) return showMsg('Please fill in all fields.', 'error');
+  if (password.length < 6) return showMsg('Password must be at least 6 characters.', 'error');
+  if (!ageConfirmed) return showMsg('Please confirm you are 18+ and agree to the Privacy Policy.', 'error');
+  const btn = document.querySelector('#form-signup .btn-submit');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  const { error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { age_confirmed_at: new Date().toISOString() } },
+  });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if (error) return showMsg(error.message, 'error');
+  showMsg('✓ Account created! Please check your email to confirm.', 'success');
+}
+
+// ── Sign In ──
+async function signIn() {
+  const email = document.getElementById('signin-email').value.trim();
+  const password = document.getElementById('signin-password').value;
+  if (!email || !password) return showMsg('Please fill in all fields.', 'error');
+  const btn = document.querySelector('#form-signin .btn-submit');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Sign In';
+  if (error) return showMsg(error.message, 'error');
+  showMsg('✓ Welcome back!', 'success');
+  checkUser();
+  setTimeout(() => { closeModal(); }, 900);
+}
+
+// ── Sign Out ──
+async function signOut() {
+  await sb.auth.signOut();
+  updateNav(null);
+}
+
+// ── Scroll animations ──
+(function() {
+  const els = document.querySelectorAll('.fade-up');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((e,i) => { if(e.isIntersecting){setTimeout(()=>e.target.classList.add('visible'),i*80);obs.unobserve(e.target);} });
+  }, {threshold:0.12});
+  els.forEach(el=>obs.observe(el));
+})();
+
+// ── Init ──
+checkUser();
+sb.auth.onAuthStateChange((_event, session) => {
+  if (_event === 'PASSWORD_RECOVERY') return;
+  updateNav(session?.user || null);
+  if (session?.user) checkUser();
+});
+</script>
+</body>
+</html>

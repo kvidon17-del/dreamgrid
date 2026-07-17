@@ -2,30 +2,26 @@
 <html lang="en">
 <head>
 <script>
-// Safety net: if a Supabase password-recovery link lands on the homepage
-// instead of /reset-password, send it there immediately (before anything renders).
 if (window.location.hash && window.location.hash.includes('type=recovery')) {
   window.location.replace('/reset-password' + window.location.hash);
 }
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dream Grid — The World's Map of Dreams</title>
-<meta name="description" content="Share your dream, claim your place, and inspire the world. One world, thousands of dreams.">
+<title>Pricing — Dream Grid</title>
+<meta name="description" content="Choose your dream size — from €3 to €100. Every dream deserves its place.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://dreamgrid.ink/">
-<meta property="og:title" content="Dream Grid — The World's Map of Dreams">
-<meta property="og:description" content="Share your dream, claim your place, and inspire the world. One world, thousands of dreams.">
+<meta property="og:url" content="https://dreamgrid.ink/pricing">
+<meta property="og:title" content="Pricing — Dream Grid">
+<meta property="og:description" content="Choose your dream size — from €3 to €100. Every dream deserves its place.">
 <meta property="og:image" content="https://dreamgrid.ink/og-default.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Dream Grid — The World's Map of Dreams">
-<meta name="twitter:description" content="Share your dream, claim your place, and inspire the world.">
+<meta name="twitter:title" content="Pricing — Dream Grid">
 <meta name="twitter:image" content="https://dreamgrid.ink/og-default.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -55,7 +51,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .logo svg { width: 30px; height: 30px; }
   .nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
   .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
-  .nav-links a:hover { color: var(--text); }
+  .nav-links a:hover, .nav-links a.active { color: var(--text); }
   .nav-actions { display: flex; align-items: center; gap: 14px; }
   .btn-ghost { color: var(--muted); font-size: 14px; background: none; border: none; cursor: pointer; transition: color 0.2s; }
   .btn-ghost:hover { color: var(--text); }
@@ -75,59 +71,18 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     background: var(--grad-btn); display: flex; align-items: center; justify-content: center;
     font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; overflow: hidden;
   }
+  .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .user-email { font-size: 13px; color: var(--muted); }
   .btn-signout { color: var(--muted); font-size: 13px; background: none; border: none; cursor: pointer; transition: color 0.2s; }
   .btn-signout:hover { color: #f87171; }
 
-  /* HERO */
-  .hero {
-    position: relative; min-height: 100vh;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 120px 24px 60px; overflow: hidden;
-  }
-  .orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; animation: float 8s ease-in-out infinite; }
-  .orb-1 { width: 600px; height: 500px; background: radial-gradient(ellipse,rgba(99,60,220,0.22),transparent 70%); top: -100px; left: 50%; transform: translateX(-50%); }
-  .orb-2 { width: 400px; height: 400px; background: radial-gradient(ellipse,rgba(244,114,182,0.1),transparent 70%); top: 30%; left: 10%; animation-delay: -3s; }
-  .orb-3 { width: 350px; height: 350px; background: radial-gradient(ellipse,rgba(59,130,246,0.08),transparent 70%); top: 20%; right: 8%; animation-delay: -5s; }
-  @keyframes float { 0%,100%{transform:translateY(0) translateX(-50%)} 50%{transform:translateY(-30px) translateX(-50%)} }
-  .orb-2 { animation-name: float2; } .orb-3 { animation-name: float3; }
-  @keyframes float2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
-  @keyframes float3 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(25px)} }
-  #stars-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
-  .hero-content { position: relative; z-index: 2; max-width: 820px; }
-  .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: #a78bfa; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 28px; }
-  .eyebrow-dot { color: var(--gold); font-size: 14px; }
-  h1 { font-family: 'Sora',sans-serif; font-size: clamp(72px,11vw,120px); font-weight: 900; line-height: 0.95; letter-spacing: -3px; background: var(--grad-title); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 6px; }
-  .title-line { width: 100%; height: 2px; margin: 10px auto 32px; max-width: 520px; background: linear-gradient(90deg,transparent,#c084fc 30%,#f472b6 65%,#fbbf24,transparent); border-radius: 2px; }
-  .hero-sub { font-size: clamp(20px,2.8vw,28px); font-weight: 700; color: #fff; margin-bottom: 14px; letter-spacing: -0.5px; }
-  .hero-sub em { font-style: normal; background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero-desc { font-size: 16px; color: var(--muted); line-height: 1.8; margin-bottom: 44px; }
-  .hero-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 72px; }
-  .btn-hero-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--grad-btn); color: #fff; text-decoration: none; padding: 16px 36px; border-radius: var(--radius); font-size: 16px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 8px 32px rgba(99,60,220,0.35); transition: all 0.25s; }
-  .btn-hero-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(99,60,220,0.5); }
-  .btn-hero-secondary { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #fff; text-decoration: none; padding: 16px 36px; border-radius: var(--radius); font-size: 16px; font-weight: 500; border: 1.5px solid rgba(255,255,255,0.15); cursor: pointer; transition: all 0.25s; }
-  .btn-hero-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
-  .stats-bar { display: flex; align-items: center; justify-content: center; }
-  .stat-item { display: flex; align-items: center; gap: 12px; padding: 0 40px; border-right: 1px solid rgba(255,255,255,0.1); }
-  .stat-item:last-child { border-right: none; }
-  .stat-icon-wrap { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-  .stat-icon-wrap.purple { background: rgba(124,92,246,0.18); border: 1px solid rgba(124,92,246,0.3); }
-  .stat-icon-wrap.blue { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.25); }
-  .stat-icon-wrap.pink { background: rgba(244,114,182,0.15); border: 1px solid rgba(244,114,182,0.25); }
-  .stat-label { font-size: 15px; font-weight: 700; color: #fff; }
-  .stat-sub { font-size: 12px; color: var(--muted); }
-
-  /* MAP */
-  .map-wrap { position: relative; height: 460px; overflow: hidden; margin-top: -10px; }
-  #map-canvas { width: 100%; height: 100%; display: block; }
-  .map-vignette-top { position: absolute; top: 0; left: 0; right: 0; height: 140px; background: linear-gradient(to bottom,var(--bg),transparent); pointer-events: none; }
-  .map-vignette-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 200px; background: linear-gradient(to top,var(--bg),transparent); pointer-events: none; }
-  .scroll-cta { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(255,255,255,0.25); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; }
-  .scroll-ring { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 14px; animation: bob 2.2s ease-in-out infinite; }
-  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
+  /* PAGE HERO */
+  .page-hero { padding: 130px 24px 20px; text-align: center; background: linear-gradient(180deg, rgba(99,60,220,0.1) 0%, transparent 100%); }
+  .page-hero h1 { font-family: 'Sora',sans-serif; font-size: clamp(30px,4.5vw,48px); font-weight: 900; color: #fff; letter-spacing: -1px; }
+  .page-hero h1 span { background: linear-gradient(90deg,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
   /* SECTIONS */
-  .section { padding: 100px 24px; }
+  .section { padding: 60px 24px 100px; }
   .section-inner { max-width: 1080px; margin: 0 auto; }
   .section-eyebrow { text-align: center; color: #a78bfa; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 14px; }
   .section-title { font-family: 'Sora',sans-serif; text-align: center; font-size: clamp(32px,5vw,48px); font-weight: 800; color: #fff; letter-spacing: -1px; margin-bottom: 14px; }
@@ -145,7 +100,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .how-card p { font-size: 14px; color: var(--muted); line-height: 1.75; }
 
   /* PRICING */
-  .pricing-section { padding: 100px 24px; background: var(--bg2); }
+  .pricing-section { padding: 20px 24px 100px; }
   .pricing-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; max-width: 1080px; margin: 0 auto; }
   .p-card { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px 24px; position: relative; transition: all 0.3s; display: flex; flex-direction: column; }
   .p-card:hover { transform: translateY(-6px); border-color: rgba(255,255,255,0.15); }
@@ -165,34 +120,16 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .p-btn.featured { background: var(--grad-btn); border-color: transparent; box-shadow: 0 6px 24px rgba(99,60,220,0.35); }
   .p-btn.featured:hover { opacity: 0.88; transform: translateY(-1px); }
 
-  /* FULFILLED */
-  .fulfilled-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 1080px; margin: 0 auto; }
-
-  .featured-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 1080px; margin: 0 auto; }
-  .featured-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: all 0.3s; text-decoration: none; display: block; }
-  .featured-card:hover { border-color: var(--border-hi); transform: translateY(-4px); }
-  .featured-card.vip { border-color: rgba(217,119,6,0.5); box-shadow: 0 0 24px rgba(217,119,6,0.15); }
-  .featured-photo { width: 100%; height: 160px; object-fit: cover; background: linear-gradient(135deg,rgba(99,60,220,0.25),rgba(168,85,247,0.15)); display: flex; align-items: center; justify-content: center; font-size: 32px; }
-  .featured-body { padding: 18px 20px; }
-  .featured-tier { font-size: 11px; font-weight: 700; color: #a78bfa; margin-bottom: 6px; }
-  .featured-card.vip .featured-tier { color: #d97706; }
-  .featured-title { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.4; }
-  .featured-empty { text-align: center; color: var(--muted); font-size: 14px; grid-column: 1/-1; padding: 20px; }
-  .story-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; transition: all 0.3s; }
-  .story-card:hover { border-color: var(--border-hi); transform: translateY(-4px); }
-  .story-flag { font-size: 24px; margin-bottom: 12px; }
-  .story-dream { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 10px; line-height: 1.4; }
-  .story-text { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 18px; }
-  .story-meta { display: flex; align-items: center; justify-content: space-between; }
-  .story-author { font-size: 12px; color: var(--muted); }
-  .story-badge { font-size: 11px; font-weight: 600; color: #34d399; background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.25); padding: 3px 10px; border-radius: 20px; }
-
   /* CTA */
-  .cta-section { padding: 80px 24px; }
+  .cta-section { padding: 20px 24px 100px; }
   .cta-box { max-width: 760px; margin: 0 auto; text-align: center; background: linear-gradient(135deg,rgba(99,60,220,0.2),rgba(168,85,247,0.15)); border: 1px solid rgba(167,139,250,0.3); border-radius: 28px; padding: 64px 48px; position: relative; overflow: hidden; }
   .cta-box h2 { font-family: 'Sora',sans-serif; font-size: clamp(28px,4vw,42px); font-weight: 800; color: #fff; margin-bottom: 16px; letter-spacing: -0.5px; }
   .cta-box p { font-size: 16px; color: var(--muted); margin-bottom: 36px; }
   .cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn-hero-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--grad-btn); color: #fff; text-decoration: none; padding: 16px 36px; border-radius: var(--radius); font-size: 16px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 8px 32px rgba(99,60,220,0.35); transition: all 0.25s; }
+  .btn-hero-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(99,60,220,0.5); }
+  .btn-hero-secondary { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #fff; text-decoration: none; padding: 16px 36px; border-radius: var(--radius); font-size: 16px; font-weight: 500; border: 1.5px solid rgba(255,255,255,0.15); cursor: pointer; transition: all 0.25s; }
+  .btn-hero-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
 
   /* FOOTER */
   footer { border-top: 1px solid var(--border); padding: 40px 48px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
@@ -203,7 +140,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .footer-copy { font-size: 12px; color: rgba(255,255,255,0.2); }
 
   /* MODAL */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
   .modal-overlay.active { opacity: 1; pointer-events: all; }
   .modal { background: #0f1228; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius-lg); padding: 40px; width: 100%; max-width: 420px; position: relative; transform: translateY(20px); transition: transform 0.3s; }
   .modal-overlay.active .modal { transform: translateY(0); }
@@ -246,18 +183,12 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   @media (max-width: 900px) {
     nav { padding: 0 24px; }
     .nav-links { display: none; }
-    .how-grid { grid-template-columns: 1fr; }
     .pricing-grid { grid-template-columns: 1fr 1fr; }
-    .fulfilled-grid { grid-template-columns: 1fr; }
-    .featured-grid { grid-template-columns: 1fr; }
     footer { flex-direction: column; padding: 32px 24px; }
   }
   @media (max-width: 600px) {
-    .stats-bar { flex-direction: column; gap: 16px; }
-    .stat-item { border-right: none; padding: 0; }
-    .pricing-grid { grid-template-columns: 1fr; }
     .cta-box { padding: 40px 24px; }
-    .hero-btns { flex-direction: column; align-items: center; }
+    .pricing-grid { grid-template-columns: 1fr; }
   }
 </style>
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -267,14 +198,14 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 
 <!-- NAV -->
 <nav>
-  <a href="#" class="logo">
+  <a href="/" class="logo">
     <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
     Dream Grid
   </a>
   <ul class="nav-links">
     <li><a href="/explore">Explore Dreams</a></li>
     <li><a href="/how-it-works">How It Works</a></li>
-    <li><a href="/pricing">Pricing</a></li>
+    <li><a href="/pricing" class="active">Pricing</a></li>
     <li><a href="/fulfilled">Dreams Fulfilled</a></li>
     <li><a href="/about">About</a></li>
   </ul>
@@ -298,52 +229,71 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   </div>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
-  <canvas id="stars-canvas"></canvas>
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
-  <div class="orb orb-3"></div>
-  <div class="hero-content">
-    <p class="eyebrow"><span class="eyebrow-dot">✦</span> The World's Map of Dreams <span class="eyebrow-dot">✦</span></p>
-    <h1>Dream Grid</h1>
-    <div class="title-line"></div>
-    <p class="hero-sub">One World. Thousands of <em>Dreams.</em> ✦</p>
-    <p class="hero-desc">Share your dream, claim your place,<br>and inspire the world.</p>
-    <div class="hero-btns">
-      <button class="btn-hero-primary" onclick="openModal('signup')">✦ Share Your Dream</button>
-      <a href="/explore" class="btn-hero-secondary">🌐 Explore the Grid</a>
-    </div>
-    <div class="stats-bar">
-      <div class="stat-item"><div class="stat-icon-wrap purple">👥</div><div><div class="stat-label">Thousands</div><div class="stat-sub">of dreamers</div></div></div>
-      <div class="stat-item"><div class="stat-icon-wrap blue">🌐</div><div><div class="stat-label">40+</div><div class="stat-sub">countries</div></div></div>
-      <div class="stat-item"><div class="stat-icon-wrap pink">🤍</div><div><div class="stat-label">Countless</div><div class="stat-sub">dreams shared</div></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- MAP -->
-<div class="map-wrap">
-  <canvas id="map-canvas"></canvas>
-  <div class="map-vignette-top"></div>
-  <div class="map-vignette-bottom"></div>
-  <div class="scroll-cta"><div class="scroll-ring">↓</div>Scroll to Explore</div>
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <h1>✦ <span>Pricing</span> ✦</h1>
 </div>
 
-<!-- FEATURED DREAMS -->
-<section class="section" id="featured">
-  <div class="section-inner">
-    <p class="section-eyebrow fade-up">✦ Featured Dreams</p>
-    <h2 class="section-title fade-up">Dreams making the biggest mark</h2>
-    <p class="section-desc fade-up">Premium and VIP dreams, pinned to the top of the grid.</p>
-    <div class="featured-grid" id="featured-grid">
-      <div class="featured-empty">Loading…</div>
+<!-- PRICING -->
+<div class="pricing-section" id="pricing">
+  <p class="section-eyebrow fade-up">✦ Pricing</p>
+  <h2 class="section-title fade-up">Choose your dream size</h2>
+  <p class="section-desc fade-up">Every dream deserves its place. Start from just €3.</p>
+  <div class="pricing-grid">
+    <div class="p-card fade-up">
+      <div class="p-tier">Basic</div><div class="p-name">My Dream</div>
+      <div class="p-price">€3</div><div class="p-price-label">one-time</div>
+      <div class="p-divider"></div>
+      <ul class="p-features">
+        <li><span class="p-check">✓</span> Your dream, pinned on the map</li>
+        <li><span class="p-check">✓</span> Text up to 300 characters</li>
+        <li><span class="p-check">✓</span> Public dream page</li>
+        <li><span class="p-check">✓</span> Share to social media</li>
+      </ul>
+      <button class="p-btn" onclick="openModal('signup')">Get started</button>
+    </div>
+    <div class="p-card fade-up">
+      <div class="p-tier">Standard</div><div class="p-name">Big Dream</div>
+      <div class="p-price">€10</div><div class="p-price-label">one-time</div>
+      <div class="p-divider"></div>
+      <ul class="p-features">
+        <li><span class="p-check">✓</span> Everything in My Dream</li>
+        <li><span class="p-check">✓</span> Photo upload</li>
+        <li><span class="p-check">✓</span> Text up to 1,000 characters</li>
+        <li><span class="p-check">✓</span> Brighter pin on the map</li>
+      </ul>
+      <button class="p-btn" onclick="openModal('signup')">Get started</button>
+    </div>
+    <div class="p-card featured fade-up">
+      <div class="p-badge">✦ Most Popular</div>
+      <div class="p-tier">Premium</div><div class="p-name">Dream of the Year</div>
+      <div class="p-price">€25</div><div class="p-price-label">one-time</div>
+      <div class="p-divider"></div>
+      <ul class="p-features">
+        <li><span class="p-check">✓</span> Everything in Big Dream</li>
+        <li><span class="p-check">✓</span> Video (YouTube or Vimeo)</li>
+        <li><span class="p-check">✓</span> Featured on the homepage</li>
+        <li><span class="p-check">✓</span> Priority placement in Explore</li>
+      </ul>
+      <button class="p-btn featured" onclick="openModal('signup')">Share your dream</button>
+    </div>
+    <div class="p-card fade-up">
+      <div class="p-tier">VIP</div><div class="p-name">Dream Legend</div>
+      <div class="p-price">€100</div><div class="p-price-label">one-time</div>
+      <div class="p-divider"></div>
+      <ul class="p-features">
+        <li><span class="p-check">✓</span> Everything in Dream of the Year</li>
+        <li><span class="p-check">✓</span> Up to 4 extra gallery photos</li>
+        <li><span class="p-check">✓</span> Text up to 1,500 characters</li>
+        <li><span class="p-check">✓</span> Gold-highlighted page & top of Explore</li>
+      </ul>
+      <button class="p-btn" onclick="openModal('signup')">Become a legend</button>
     </div>
   </div>
-</section>
+</div>
 
 <!-- CTA -->
-<section class="cta-section" id="cta">
+<section class="cta-section">
   <div class="cta-box fade-up">
     <h2>Your dream is waiting for its place</h2>
     <p>Join thousands of dreamers from 40+ countries. Claim your spot today — starting from just €3.</p>
@@ -356,7 +306,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 
 <!-- FOOTER -->
 <footer>
-  <a href="#" class="footer-logo">
+  <a href="/" class="footer-logo">
     <svg width="20" height="20" viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg2)"/><defs><linearGradient id="lg2" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
     Dream Grid
   </a>
@@ -429,39 +379,6 @@ const SUPABASE_URL = 'https://wnbgwonqpjwzdgcngkxi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Featured Dreams ──
-const FEATURED_TIER_LABEL = { premium: '⭐ Dream of the Year', vip: '👑 Dream Legend' };
-async function loadFeaturedDreams() {
-  const grid = document.getElementById('featured-grid');
-  const { data, error } = await sb.from('dreams')
-    .select('id,title,photo_url,created_at,cells!inner(tier)')
-    .eq('status', 'active')
-    .in('cells.tier', ['premium', 'vip'])
-    .order('created_at', { ascending: false })
-    .limit(30);
-
-  const featured = (data || [])
-    .filter(d => d.cells && ['premium', 'vip'].includes(d.cells.tier))
-    .sort((a, b) => (a.cells.tier === b.cells.tier ? 0 : a.cells.tier === 'vip' ? -1 : 1))
-    .slice(0, 6);
-
-  if (error || !featured.length) {
-    grid.innerHTML = '<div class="featured-empty">Be the first Premium or VIP dream featured here ✦</div>';
-    return;
-  }
-
-  grid.innerHTML = featured.map(d => `
-    <a class="featured-card ${d.cells.tier === 'vip' ? 'vip' : ''}" href="/dream/${d.id}">
-      ${d.photo_url ? `<img class="featured-photo" src="${d.photo_url}" alt="${d.title}">` : `<div class="featured-photo">${d.cells.tier === 'vip' ? '👑' : '⭐'}</div>`}
-      <div class="featured-body">
-        <div class="featured-tier">${FEATURED_TIER_LABEL[d.cells.tier]}</div>
-        <div class="featured-title">${d.title}</div>
-      </div>
-    </a>
-  `).join('');
-}
-loadFeaturedDreams();
-
 // ── Auth state ──
 let currentUser = null;
 async function checkUser() {
@@ -473,7 +390,6 @@ async function checkUser() {
     profile = data;
   }
   updateNav(user, profile);
-  // If already logged in — show dashboard button in nav
   if (user) {
     const navGuest = document.getElementById('nav-guest');
     if (navGuest) {
@@ -495,7 +411,7 @@ function updateNav(user, profile) {
     document.getElementById('user-email-nav').textContent = displayName;
     const avatarEl = document.getElementById('user-avatar');
     if (profile?.avatar_url) {
-      avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      avatarEl.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar">`;
     } else {
       avatarEl.textContent = displayName[0].toUpperCase();
     }
@@ -526,7 +442,6 @@ function switchTab(tab) {
   document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
   clearMsg();
 }
-
 function showResetForm(show = true) {
   clearMsg();
   if (show) {
@@ -540,7 +455,6 @@ function showResetForm(show = true) {
     switchTab('signin');
   }
 }
-
 async function sendPasswordReset() {
   const email = document.getElementById('reset-email').value.trim();
   if (!email) return showMsg('Please enter your email.', 'error');
@@ -601,8 +515,7 @@ async function signIn() {
   btn.disabled = false; btn.textContent = 'Sign In';
   if (error) return showMsg(error.message, 'error');
   showMsg('✓ Welcome back!', 'success');
-  updateNav(data.user);
-  if (window.refreshDreamDotsForAuth) window.refreshDreamDotsForAuth();
+  checkUser();
   setTimeout(() => { closeModal(); }, 900);
 }
 
@@ -611,194 +524,6 @@ async function signOut() {
   await sb.auth.signOut();
   updateNav(null);
 }
-
-// ── Stars ──
-(function() {
-  const canvas = document.getElementById('stars-canvas');
-  const ctx = canvas.getContext('2d');
-  let W, H, stars = [];
-  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
-  function initStars() { stars = []; for (let i=0;i<120;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.4+0.2,a:Math.random(),da:(Math.random()*0.008+0.003)*(Math.random()<0.5?1:-1)}); }
-  function drawStars() { ctx.clearRect(0,0,W,H); for (const s of stars) { s.a+=s.da; if(s.a<=0||s.a>=1)s.da*=-1; ctx.globalAlpha=s.a*0.8; ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1; requestAnimationFrame(drawStars); }
-  resize(); initStars(); drawStars();
-  window.addEventListener('resize',()=>{resize();initStars();});
-})();
-
-// ── Map ──
-(function() {
-  const canvas = document.getElementById('map-canvas');
-  const ctx = canvas.getContext('2d');
-  let W, H;
-  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
-  resize(); window.addEventListener('resize', resize);
-  const dreamColors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f59e0b','#10b981','#3b82f6','#06b6d4'];
-  const dots = [];
-
-  function generateDots(landPath2D, hitCtx, targetCount) {
-    let attempts = 0;
-    while (dots.length < targetCount && attempts < targetCount * 60) {
-      attempts++;
-      const x = Math.random(), y = Math.random();
-      if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
-      dots.push({
-        x, y,
-        size: Math.random() * 1.0 + 0.2,
-        isDream: false, phase: Math.random() * Math.PI * 2, speed: 0.025 + Math.random() * 0.04,
-      });
-    }
-  }
-
-  function extractPolygons(geo) {
-    const feats = geo.type === 'FeatureCollection' ? geo.features : [geo];
-    const polygons = [];
-    for (const f of feats) {
-      const g = f.geometry || f;
-      if (!g) continue;
-      if (g.type === 'MultiPolygon') polygons.push(...g.coordinates);
-      else if (g.type === 'Polygon') polygons.push(g.coordinates);
-    }
-    return polygons;
-  }
-
-  async function loadMapDots() {
-    const hitCtx = document.createElement('canvas').getContext('2d');
-    let landPath2D;
-    try {
-      const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
-      const topology = await res.json();
-      const geo = topojson.feature(topology, topology.objects.land);
-      const polygons = extractPolygons(geo);
-      landPath2D = new Path2D();
-      for (const polygon of polygons) {
-        for (const ring of polygon) {
-          let prevX = null;
-          ring.forEach(([lon, lat], i) => {
-            const x = (lon + 180) / 360, y = (90 - lat) / 180;
-            if (i === 0 || prevX === null || Math.abs(x - prevX) > 0.5) landPath2D.moveTo(x, y);
-            else landPath2D.lineTo(x, y);
-            prevX = x;
-          });
-          landPath2D.closePath();
-        }
-      }
-    } catch (e) {
-      console.error('World map data failed to load, using fallback shapes', e);
-      const fallback = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
-      landPath2D = new Path2D();
-      for (const [cx,cy,rx,ry] of fallback) landPath2D.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
-    }
-    generateDots(landPath2D, hitCtx, 1400);
-
-    cachedLandPath2D = landPath2D;
-    cachedHitCtx = hitCtx;
-    await refreshDreamDots();
-  }
-  let cachedLandPath2D = null, cachedHitCtx = null;
-
-  async function refreshDreamDots() {
-    // Remove any previously-placed dream dots (real or decorative) so re-running this doesn't duplicate them
-    for (let i = dots.length - 1; i >= 0; i--) {
-      if (dots[i].isDream) dots.splice(i, 1);
-    }
-    const { data: { user } } = await sb.auth.getUser();
-    if (user) await loadRealDreams();
-    else generateDecorativeDreamDots(cachedLandPath2D, cachedHitCtx, 50);
-  }
-  window.refreshDreamDotsForAuth = refreshDreamDots;
-
-  loadMapDots();
-
-  // Real dreams from Supabase — only shown to signed-in visitors
-  const TIER_DOT_SIZE = { basic: 2, standard: 2.8, premium: 3.6, vip: 5 };
-  async function loadRealDreams() {
-    const { data, error } = await sb.from('cells')
-      .select('lat,lng,tier,dreams(id,title)')
-      .eq('status', 'active')
-      .not('lat', 'is', null)
-      .limit(3000);
-    if (error || !data) return;
-    for (const cell of data) {
-      const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
-      dots.push({
-        x: (cell.lng + 180) / 360,
-        y: (90 - cell.lat) / 180,
-        size: TIER_DOT_SIZE[cell.tier] || 2,
-        baseColor: dreamColors[Math.floor(Math.random() * dreamColors.length)],
-        isDream: true,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.025 + Math.random() * 0.04,
-        dreamId: dream ? dream.id : null,
-      });
-    }
-  }
-
-  // Guests see glowing dots too (so the map still feels alive) — clicking any of them prompts sign up
-  function generateDecorativeDreamDots(landPath2D, hitCtx, targetCount) {
-    let placed = 0, attempts = 0;
-    while (placed < targetCount && attempts < targetCount * 60) {
-      attempts++;
-      const x = Math.random(), y = Math.random();
-      if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
-      dots.push({
-        x, y,
-        size: TIER_DOT_SIZE[Object.keys(TIER_DOT_SIZE)[Math.floor(Math.random() * 4)]],
-        baseColor: dreamColors[Math.floor(Math.random() * dreamColors.length)],
-        isDream: true,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.025 + Math.random() * 0.04,
-        dreamId: 'signup',
-      });
-      placed++;
-    }
-  }
-
-  // Click a glowing dream dot to open it
-  canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left, clickY = e.clientY - rect.top;
-    let closest = null, closestDist = 14;
-    for (const d of dots) {
-      if (!d.dreamId) continue;
-      const px = d.x * W, py = d.y * H + H * 0.04;
-      const dist = Math.hypot(px - clickX, py - clickY);
-      if (dist < closestDist) { closestDist = dist; closest = d; }
-    }
-    if (closest) {
-      if (!currentUser) { openModal('signup'); return; }
-      window.open(`/dream/${closest.dreamId}`, '_blank');
-    }
-  });
-  canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    let hovering = false;
-    for (const d of dots) {
-      if (!d.dreamId) continue;
-      const px = d.x * W, py = d.y * H + H * 0.04;
-      if (Math.hypot(px - mx, py - my) < 14) { hovering = true; break; }
-    }
-    canvas.style.cursor = hovering ? 'pointer' : 'default';
-  });
-
-  let t=0;
-  function draw() {
-    t+=0.016; ctx.clearRect(0,0,W,H);
-    for (const d of dots) {
-      const px=d.x*W, py=d.y*H+H*0.04;
-      if (d.isDream) {
-        const pulse=0.55+Math.sin(t*d.speed*60+d.phase)*0.45;
-        const g=ctx.createRadialGradient(px,py,0,px,py,d.size*4);
-        g.addColorStop(0,d.baseColor+'bb'); g.addColorStop(1,d.baseColor+'00');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,py,d.size*4,0,Math.PI*2); ctx.fill();
-        ctx.globalAlpha=pulse; ctx.fillStyle=d.baseColor; ctx.beginPath(); ctx.arc(px,py,d.size,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
-      } else {
-        ctx.fillStyle=`rgba(120,140,220,${0.12+Math.random()*0.08})`; ctx.beginPath(); ctx.arc(px,py,d.size,0,Math.PI*2); ctx.fill();
-      }
-    }
-    requestAnimationFrame(draw);
-  }
-  draw();
-})();
 
 // ── Scroll animations ──
 (function() {
@@ -812,21 +537,10 @@ async function signOut() {
 // ── Init ──
 checkUser();
 sb.auth.onAuthStateChange((_event, session) => {
-  if (_event === 'PASSWORD_RECOVERY') return; // handled on /reset-password, never treat as a normal login here
+  if (_event === 'PASSWORD_RECOVERY') return;
   updateNav(session?.user || null);
   if (session?.user) checkUser();
 });
-
-// ── Post-password-reset flow: show sign-in prompt after a successful reset ──
-(function() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('password_reset') === 'success') {
-    openModal('signin');
-    showMsg('✓ Password updated! Please sign in with your new password.', 'success');
-    // Clean the URL so a refresh doesn't re-show the message
-    window.history.replaceState({}, document.title, '/');
-  }
-})();
 </script>
 </body>
 </html>
