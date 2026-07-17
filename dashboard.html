@@ -123,6 +123,15 @@
   .avatar-upload-btn:hover { transform: scale(1.1); }
   .profile-info h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
   .profile-info p { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .crop-modal { background: #0f1228; border: 1px solid rgba(167,139,250,0.3); border-radius: 20px; padding: 28px; width: 100%; max-width: 360px; text-align: center; }
+  .crop-modal h3 { font-family: 'Sora',sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .crop-hint { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+  .crop-canvas-wrap { width: 280px; height: 280px; border-radius: 50%; overflow: hidden; margin: 0 auto 20px; cursor: grab; border: 2px solid rgba(167,139,250,0.4); touch-action: none; background: #000; }
+  .crop-canvas-wrap:active { cursor: grabbing; }
+  #crop-canvas { display: block; width: 100%; height: 100%; }
+  #crop-zoom { width: 100%; margin-bottom: 22px; accent-color: #7c5cf6; }
+  .crop-actions { display: flex; gap: 10px; }
+  .crop-actions button { flex: 1; }
   .profile-joined { font-size: 12px; color: rgba(255,255,255,0.25); }
 
   /* MODAL */
@@ -623,6 +632,21 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="avatar-crop-overlay">
+  <div class="crop-modal">
+    <h3>Adjust your photo</h3>
+    <p class="crop-hint">Drag to reposition, use the slider to zoom in on your face.</p>
+    <div class="crop-canvas-wrap" id="crop-canvas-wrap">
+      <canvas id="crop-canvas" width="280" height="280"></canvas>
+    </div>
+    <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" oninput="onCropZoom()">
+    <div class="crop-actions">
+      <button class="btn-action" onclick="closeCropModal()">Cancel</button>
+      <button class="btn-claim" id="btn-save-crop" onclick="saveCroppedAvatar()">✓ Save photo</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const { createClient } = supabase;
 const sb = createClient(
@@ -1091,42 +1115,129 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
   });
 }
 
-// ── AVATAR UPLOAD ──
+// ── AVATAR UPLOAD + CROP ──
+const CROP_SIZE = 280;         // on-screen crop canvas size (px)
+const CROP_OUTPUT_SIZE = 500;  // final saved photo size (px)
+let cropImg = null, cropNaturalW = 0, cropNaturalH = 0;
+let cropScale = 1, cropMinScale = 1;
+let cropOffsetX = 0, cropOffsetY = 0;
+let cropDragging = false, cropDragStartX = 0, cropDragStartY = 0, cropStartOffsetX = 0, cropStartOffsetY = 0;
+
 async function handleAvatarSelect(event) {
   const file = event.target.files[0];
+  event.target.value = ''; // allow re-selecting the same file next time
   if (!file) return;
   if (file.size > 30 * 1024 * 1024) return showToast("That photo is huge — try a different one.", 'error');
 
-  showToast('Uploading photo…', 'success');
-  let blob;
-  try {
-    blob = await compressImage(file, 500, 0.85);
-  } catch (e) {
-    showToast("Couldn't read that photo — try a different one.", 'error');
-    return;
-  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    cropImg = img;
+    cropNaturalW = img.naturalWidth;
+    cropNaturalH = img.naturalHeight;
+    cropMinScale = CROP_SIZE / Math.min(cropNaturalW, cropNaturalH);
+    cropScale = cropMinScale;
+    cropOffsetX = (CROP_SIZE - cropNaturalW * cropScale) / 2;
+    cropOffsetY = (CROP_SIZE - cropNaturalH * cropScale) / 2;
+    document.getElementById('crop-zoom').value = 1;
+    document.getElementById('avatar-crop-overlay').classList.add('active');
+    drawCropCanvas();
+  };
+  img.onerror = () => showToast("Couldn't read that photo — try a different one.", 'error');
+  img.src = url;
+}
 
-  // Fixed filename per user (inside their own folder) so re-uploading just overwrites it
-  const fileName = `${currentUser.id}/avatar.jpg`;
-  const { error: uploadError } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
-  if (uploadError) {
-    showToast('Upload failed. Try again.', 'error');
-    return;
-  }
+function closeCropModal() {
+  document.getElementById('avatar-crop-overlay').classList.remove('active');
+  cropImg = null;
+}
 
-  const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
-  // Cache-bust so the new photo shows immediately everywhere, instead of a cached old one
-  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+function drawCropCanvas() {
+  const ctx = document.getElementById('crop-canvas').getContext('2d');
+  ctx.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
+  ctx.drawImage(cropImg, cropOffsetX, cropOffsetY, cropNaturalW * cropScale, cropNaturalH * cropScale);
+}
 
-  const { error: saveError } = await sb.from('profiles').upsert({ id: currentUser.id, avatar_url: avatarUrl });
-  if (saveError) {
-    showToast('Photo uploaded but could not be saved. Try again.', 'error');
-    return;
-  }
+function clampCropOffsets() {
+  const dispW = cropNaturalW * cropScale, dispH = cropNaturalH * cropScale;
+  cropOffsetX = Math.min(0, Math.max(CROP_SIZE - dispW, cropOffsetX));
+  cropOffsetY = Math.min(0, Math.max(CROP_SIZE - dispH, cropOffsetY));
+}
 
-  userProfile.avatar_url = avatarUrl;
-  populateUI(currentUser);
-  showToast('✅ Profile photo updated!', 'success');
+function onCropZoom() {
+  const multiplier = parseFloat(document.getElementById('crop-zoom').value);
+  // Keep the point currently at the center of the circle fixed while zooming
+  const cx = CROP_SIZE / 2, cy = CROP_SIZE / 2;
+  const imgX = (cx - cropOffsetX) / cropScale;
+  const imgY = (cy - cropOffsetY) / cropScale;
+  cropScale = cropMinScale * multiplier;
+  cropOffsetX = cx - imgX * cropScale;
+  cropOffsetY = cy - imgY * cropScale;
+  clampCropOffsets();
+  drawCropCanvas();
+}
+
+(function initCropDrag() {
+  const wrap = document.getElementById('crop-canvas-wrap');
+  wrap.addEventListener('pointerdown', (e) => {
+    if (!cropImg) return;
+    cropDragging = true;
+    cropDragStartX = e.clientX; cropDragStartY = e.clientY;
+    cropStartOffsetX = cropOffsetX; cropStartOffsetY = cropOffsetY;
+    wrap.setPointerCapture(e.pointerId);
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!cropDragging) return;
+    cropOffsetX = cropStartOffsetX + (e.clientX - cropDragStartX);
+    cropOffsetY = cropStartOffsetY + (e.clientY - cropDragStartY);
+    clampCropOffsets();
+    drawCropCanvas();
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(evt =>
+    wrap.addEventListener(evt, () => { cropDragging = false; })
+  );
+})();
+
+async function saveCroppedAvatar() {
+  const btn = document.getElementById('btn-save-crop');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = CROP_OUTPUT_SIZE;
+  outCanvas.height = CROP_OUTPUT_SIZE;
+  const factor = CROP_OUTPUT_SIZE / CROP_SIZE;
+  outCanvas.getContext('2d').drawImage(
+    cropImg,
+    cropOffsetX * factor, cropOffsetY * factor,
+    cropNaturalW * cropScale * factor, cropNaturalH * cropScale * factor
+  );
+
+  outCanvas.toBlob(async (blob) => {
+    if (!blob) {
+      showToast("Couldn't process that photo — try again.", 'error');
+      btn.disabled = false; btn.textContent = '✓ Save photo';
+      return;
+    }
+    const fileName = `${currentUser.id}/avatar.jpg`;
+    const { error: uploadError } = await sb.storage.from('dream-photos').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+    if (uploadError) {
+      showToast('Upload failed. Try again.', 'error');
+      btn.disabled = false; btn.textContent = '✓ Save photo';
+      return;
+    }
+    const { data: urlData } = sb.storage.from('dream-photos').getPublicUrl(fileName);
+    const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+    const { error: saveError } = await sb.from('profiles').upsert({ id: currentUser.id, avatar_url: avatarUrl });
+    btn.disabled = false; btn.textContent = '✓ Save photo';
+    if (saveError) {
+      showToast('Photo uploaded but could not be saved. Try again.', 'error');
+      return;
+    }
+    userProfile.avatar_url = avatarUrl;
+    populateUI(currentUser);
+    closeCropModal();
+    showToast('✅ Profile photo updated!', 'success');
+  }, 'image/jpeg', 0.85);
 }
 
 // ── GALLERY UPLOAD (VIP) ──
