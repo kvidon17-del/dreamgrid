@@ -52,6 +52,11 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
   .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
   .nav-links a:hover, .nav-links a.active { color: var(--text); }
+  .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; padding: 4px 8px; line-height: 1; }
+  .mobile-dropdown { display: none; position: fixed; top: 68px; left: 0; right: 0; z-index: 199; background: rgba(7,9,24,0.97); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); flex-direction: column; padding: 8px 0; }
+  .mobile-dropdown.open { display: flex; }
+  .mobile-dropdown a { color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; padding: 15px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .mobile-dropdown a:hover, .mobile-dropdown a.active { color: #fff; }
   .nav-actions { display: flex; align-items: center; gap: 14px; }
   .btn-ghost { color: var(--muted); font-size: 14px; background: none; border: none; cursor: pointer; transition: color 0.2s; }
   .btn-ghost:hover { color: var(--text); }
@@ -162,6 +167,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   @media (max-width: 900px) {
     nav { padding: 0 24px; }
     .nav-links { display: none; }
+    .mobile-menu-btn { display: inline-flex; }
     .how-grid { grid-template-columns: 1fr; }
     footer { flex-direction: column; padding: 32px 24px; }
   }
@@ -176,10 +182,13 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 
 <!-- NAV -->
 <nav>
-  <a href="/" class="logo">
-    <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
-    Dream Grid
-  </a>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <a href="/" class="logo">
+      <svg viewBox="0 0 30 30" fill="none"><path d="M15 3L18.5 10.5L27 12L21 18L22.5 27L15 23L7.5 27L9 18L3 12L11.5 10.5L15 3Z" fill="url(#lg1)"/><defs><linearGradient id="lg1" x1="3" y1="3" x2="27" y2="27"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs></svg>
+      Dream Grid
+    </a>
+    <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+  </div>
   <ul class="nav-links">
     <li><a href="/explore">Explore Dreams</a></li>
     <li><a href="/how-it-works">How It Works</a></li>
@@ -206,6 +215,16 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     </div>
   </div>
 </nav>
+
+<!-- MOBILE DROPDOWN MENU -->
+<div class="mobile-dropdown" id="mobile-dropdown">
+  <a href="/explore">Explore Dreams</a>
+  <a href="/how-it-works">How It Works</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/fulfilled">Dreams Fulfilled</a>
+  <a href="/about" class="active">About</a>
+</div>
+
 
 <!-- PAGE HERO -->
 <div class="page-hero">
@@ -334,6 +353,13 @@ function updateNav(user, profile) {
     document.getElementById('nav-guest').style.display = 'flex';
     document.getElementById('nav-user').style.display = 'none';
   }
+}
+
+// ── Mobile dropdown menu ──
+function toggleMobileMenu() {
+  const dd = document.getElementById('mobile-dropdown');
+  const isOpen = dd.classList.toggle('open');
+  document.getElementById('mobile-menu-btn').textContent = isOpen ? '✕' : '☰';
 }
 
 // ── Modal ──
