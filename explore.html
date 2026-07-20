@@ -116,6 +116,33 @@
     font-family: 'Inter', sans-serif;
   }
   .search-box input::placeholder { color: var(--muted); }
+  .location-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    flex: 1; min-width: 200px; max-width: 320px;
+    transition: border-color 0.2s;
+  }
+  .location-box:focus-within { border-color: rgba(167,139,250,0.5); }
+  .location-box input {
+    background: none; border: none; outline: none;
+    color: #fff; font-size: 14px; flex: 1;
+    font-family: 'Inter', sans-serif;
+  }
+  .location-box input::placeholder { color: var(--muted); }
+  .location-box button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 15px; padding: 2px; transition: color 0.2s;
+  }
+  .location-box button:hover { color: #fff; }
+  .btn-near-me {
+    padding: 9px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-near-me:hover { border-color: rgba(167,139,250,0.4); color: #fff; }
+  .btn-near-me.active { background: rgba(99,60,220,0.2); border-color: rgba(167,139,250,0.4); color: #a78bfa; }
   .filter-btn {
     padding: 9px 18px; border-radius: var(--radius-sm);
     font-size: 13px; font-weight: 500; cursor: pointer;
@@ -245,6 +272,7 @@
     .explore-map-wrap { margin: 0 20px 24px; height: 220px; }
     .page-hero { padding: 88px 20px 32px; }
     .filters-bar { padding: 16px 20px; }
+    .search-box, .location-box { min-width: 100%; max-width: 100%; }
     main { padding: 24px 20px 60px; }
     .dreams-grid { grid-template-columns: 1fr; }
   }
@@ -313,10 +341,16 @@
     <span>🔍</span>
     <input type="text" id="search-input" placeholder="Search dreams..." oninput="handleSearch()">
   </div>
+  <div class="location-box">
+    <span>📍</span>
+    <input type="text" id="location-search-input" placeholder="Search near a place..." onkeydown="if(event.key==='Enter'){event.preventDefault();searchNearLocation();}">
+    <button onclick="searchNearLocation()" aria-label="Search">→</button>
+  </div>
+  <button class="btn-near-me" id="btn-near-me" onclick="useMyLocation()">📍 Near me</button>
   <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
   <button class="filter-btn" onclick="setFilter('active', this)">● Active</button>
   <button class="filter-btn" onclick="setFilter('fulfilled', this)">✓ Fulfilled</button>
-  <select class="sort-select" onchange="setSort(this.value)">
+  <select class="sort-select" id="sort-select" onchange="setSort(this.value)">
     <option value="featured">✦ Featured</option>
     <option value="newest">Newest first</option>
     <option value="oldest">Oldest first</option>
@@ -362,6 +396,7 @@ let currentFilter = 'all';
 let currentSort = 'featured';
 let searchQuery = '';
 let displayedCount = PAGE_SIZE;
+let refLat = null, refLng = null; // reference point for "Nearest to..." sorting
 
 const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
 const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
@@ -555,6 +590,10 @@ function applyFilters() {
   if (currentSort === 'oldest') result.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
   if (currentSort === 'likes') result.sort((a,b) => (b.likes_count||0) - (a.likes_count||0));
   if (currentSort === 'views') result.sort((a,b) => (b.views_count||0) - (a.views_count||0));
+  if (currentSort === 'nearest' && refLat !== null && refLng !== null) {
+    result = result.filter(d => d.cells?.lat != null && d.cells?.lng != null);
+    result.sort((a,b) => distanceKm(refLat, refLng, a.cells.lat, a.cells.lng) - distanceKm(refLat, refLng, b.cells.lat, b.cells.lng));
+  }
 
   filteredDreams = result;
   displayedCount = PAGE_SIZE;
@@ -633,6 +672,7 @@ function setFilter(filter, btn) {
 
 function setSort(sort) {
   currentSort = sort;
+  if (sort !== 'nearest') document.getElementById('btn-near-me').classList.remove('active');
   applyFilters();
 }
 
@@ -649,6 +689,69 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show';
   setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── Distance-based sorting ("Nearest to...") ──
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function setNearestOption(label) {
+  const select = document.getElementById('sort-select');
+  let opt = select.querySelector('option[value="nearest"]');
+  if (!opt) {
+    opt = document.createElement('option');
+    opt.value = 'nearest';
+    select.appendChild(opt);
+  }
+  opt.textContent = `📍 Nearest to ${label}`;
+  select.value = 'nearest';
+  currentSort = 'nearest';
+  document.getElementById('btn-near-me').classList.toggle('active', label === 'me');
+  applyFilters();
+}
+
+async function searchNearLocation() {
+  const input = document.getElementById('location-search-input');
+  const query = input.value.trim();
+  if (!query) return;
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    const results = await res.json();
+    if (!results.length) {
+      showToast(`Couldn't find "${query}" — try a different spelling`);
+      return;
+    }
+    refLat = parseFloat(results[0].lat);
+    refLng = parseFloat(results[0].lon);
+    document.getElementById('btn-near-me').classList.remove('active');
+    setNearestOption(query);
+  } catch (e) {
+    showToast('Search failed — please try again');
+  }
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) {
+    showToast("Your browser doesn't support location search");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      refLat = pos.coords.latitude;
+      refLng = pos.coords.longitude;
+      document.getElementById('location-search-input').value = '';
+      setNearestOption('me');
+    },
+    () => {
+      showToast("Couldn't access your location — check your browser's permission settings");
+    }
+  );
 }
 
 init();
