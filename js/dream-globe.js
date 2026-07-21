@@ -1,88 +1,99 @@
 /**
- * Dream Grid — Decorative Digital Globe (background visual for hero section)
+ * Dream Grid — Decorative Digital Globe v2 (background visual for hero section)
  * ----------------------------------------------------------------------------
  * Чистый JS + Three.js через ES-модули с CDN (jsdelivr). Без npm, без сборки.
- * Это ДЕКОРАТИВНАЯ анимация — реальных данных о пользователях/мечтах здесь нет,
- * координаты городов используются только как визуальные "узлы" для дуг.
+ * ДЕКОРАТИВНАЯ анимация — координаты городов используются только как визуальные
+ * "узлы" для дуг, реальных пользовательских данных здесь нет.
  *
- * Подключение (в index.html, перед </body>):
+ * v2: добавлены wireframe-сетка широт/долгот, "толстые" светящиеся дуги (Line2),
+ * пульсирующие ореолы узлов, наклонные декоративные кольца-орбиты, звёздное поле,
+ * усиленный/настроенный bloom.
  *
- *   <script type="importmap">
- *   {
- *     "imports": {
- *       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
- *       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
- *     }
- *   }
- *   </script>
+ * Подключение в index.html не меняется (уже сделано ранее):
+ *   importmap с three + three/addons/, canvas#dream-globe-canvas,
  *   <script type="module" src="/js/dream-globe.js"></script>
- *
- * И канвас внутри .hero (см. инструкцию отдельным сообщением):
- *   <canvas id="dream-globe-canvas"></canvas>
  */
 
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 
 // ──────────────────────────────────────────────────────────────────────────
-// 1. КОНФИГУРАЦИЯ — все визуальные параметры вынесены сюда
+// 1. КОНФИГУРАЦИЯ
 // ──────────────────────────────────────────────────────────────────────────
 const CONFIG = {
   radius: 100,
-  autoRotateSpeed: 0.055,        // рад/сек
+  autoRotateSpeed: 0.05,
   dragRotateDamping: 0.92,
-  pointColor: '#c4b5fd',         // светлые точки материков
-  pointColorBright: '#f9a8d4',   // яркие акцентные точки
-  arcColor: '#a78bfa',
-  arcColorBright: '#f472b6',
-  backgroundOpacityOnDark: true, // фон делаем прозрачным — сайт уже тёмный
+
+  pointColor: '#c4b5fd',
+  pointColorBright: '#f9a8d4',
+
+  gridColor: '#7c9cf6',
+  gridOpacity: 0.16,
+  gridLatLines: 10,
+  gridLonLines: 16,
+
+  arcColor: '#8b6cf7',
+  arcColorBright: '#f9a8d4',
+  arcLineWidth: 2.2,          // px
+  arcHeightFactor: 0.34,
+  arcCount: 18,
+  particleSpeed: 0.16,
+
+  hubGlowColor: '#c9b8ff',
+  hubCoreColor: '#ffffff',
+  hubGlowSize: 14,
+  hubPulseSpeed: 1.1,
+  hubPulseAmount: 0.35,
+
+  ringColors: ['#7c5cf6', '#f472b6'],
+  ringTilts: [ [0.55, 0.15], [-0.35, 1.15] ], // [xTilt, yTilt] радианы
+  ringOpacity: 0.22,
+  ringSpin: [0.02, -0.014],
+
+  starFieldCount: 900,
+  starFieldColor: '#bcd0ff',
+  starFieldRadiusMin: 260,
+  starFieldRadiusMax: 520,
+
   atmosphereColor: '#7c5cf6',
-  atmosphereIntensity: 0.55,
-  bloomStrength: 0.9,
-  bloomRadius: 0.55,
-  bloomThreshold: 0.15,
-  arcHeightFactor: 0.32,
-  particleSpeed: 0.18,           // доля дуги в секунду
-  arcCount: 16,
+  atmosphereIntensity: 0.5,
+
+  bloomStrength: 1.15,
+  bloomRadius: 0.65,
+  bloomThreshold: 0.1,
+
   twinkleSpeed: 1.4,
   twinkleAmount: 0.35,
 };
 
-// Уровни качества по ширине окна
 function getQualityTier() {
   const w = window.innerWidth;
-  if (w < 640) return { points: 6000, arcs: 8, bloom: false, pixelRatioCap: 1.5 };
-  if (w < 1024) return { points: 16000, arcs: 12, bloom: true, pixelRatioCap: 1.75 };
-  return { points: 30000, arcs: CONFIG.arcCount, bloom: true, pixelRatioCap: 2 };
+  if (w < 640) return { points: 6000, arcs: 9, bloom: false, stars: 300, pixelRatioCap: 1.5, rings: false };
+  if (w < 1024) return { points: 16000, arcs: 13, bloom: true, stars: 550, pixelRatioCap: 1.75, rings: true };
+  return { points: 30000, arcs: CONFIG.arcCount, bloom: true, stars: CONFIG.starFieldCount, pixelRatioCap: 2, rings: true };
 }
 
 const prefersReducedMotion =
   window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ──────────────────────────────────────────────────────────────────────────
-// 2. ГРУБЫЕ КОНТУРЫ МАТЕРИКОВ (упрощённые полигоны, только для декоративной
-//    формы облака точек — не географически точные данные)
+// 2. Грубые контуры материков (упрощённые полигоны, только форма облака точек)
 // ──────────────────────────────────────────────────────────────────────────
 const CONTINENTS = [
-  // Северная Америка
   [[-165,68],[-140,70],[-95,72],[-60,60],[-52,48],[-65,45],[-80,32],[-97,20],[-105,22],[-118,32],[-124,45],[-140,60],[-165,68]],
-  // Южная Америка
   [[-80,10],[-60,10],[-35,-5],[-35,-23],[-58,-38],[-70,-52],[-75,-40],[-81,-5],[-80,10]],
-  // Европа
   [[-10,36],[0,44],[10,54],[25,60],[40,65],[40,50],[28,42],[15,38],[-5,38],[-10,36]],
-  // Африка
   [[-18,15],[10,37],[33,32],[44,12],[42,-5],[35,-25],[18,-35],[12,-18],[-10,5],[-18,15]],
-  // Азия (без учёта перехода через 180° — упрощённо)
   [[28,42],[45,60],[70,68],[100,72],[140,68],[145,45],[130,32],[110,20],[95,8],[75,10],[60,25],[45,30],[28,42]],
-  // Индия
   [[68,24],[80,28],[88,22],[80,8],[72,10],[68,24]],
-  // Юго-Восточная Азия / Индонезия
   [[95,20],[110,22],[122,18],[125,5],[105,-8],[95,5],[95,20]],
-  // Австралия
   [[113,-12],[130,-11],[145,-17],[153,-28],[145,-38],[130,-32],[115,-25],[113,-12]],
-  // Гренландия
   [[-55,60],[-40,68],[-25,75],[-45,83],[-60,70],[-55,60]],
 ];
 
@@ -98,16 +109,11 @@ function pointInPolygon(lon, lat, poly) {
   }
   return inside;
 }
-
 function isLand(lon, lat) {
-  for (const poly of CONTINENTS) {
-    if (pointInPolygon(lon, lat, poly)) return true;
-  }
+  for (const poly of CONTINENTS) if (pointInPolygon(lon, lat, poly)) return true;
   return false;
 }
 
-// Некоторые "узлы" (реальные координаты городов используются только как
-// визуальные якоря для дуг — никаких пользовательских данных).
 const HUBS = [
   [-74, 40.7], [-0.1, 51.5], [2.35, 48.85], [13.4, 52.5], [37.6, 55.75],
   [139.7, 35.7], [116.4, 39.9], [77.2, 28.6], [103.8, 1.35], [151.2, -33.9],
@@ -116,7 +122,7 @@ const HUBS = [
 ];
 
 // ──────────────────────────────────────────────────────────────────────────
-// 3. УТИЛИТЫ
+// 3. Утилиты
 // ──────────────────────────────────────────────────────────────────────────
 function latLonToVector3(lon, lat, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -138,8 +144,26 @@ function checkWebGL() {
   }
 }
 
+// Генерирует радиальный градиент-текстуру для свечения (используется для sprite-ореолов)
+function makeGlowTexture(hex = '#ffffff') {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, hex);
+  gradient.addColorStop(0.25, hex);
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 // ──────────────────────────────────────────────────────────────────────────
-// 4. ГЕНЕРАЦИЯ ТОЧЕК МАТЕРИКОВ (fibonacci sphere + фильтр по маске суши)
+// 4. Генерация точек материков (fibonacci sphere + фильтр по маске суши)
 // ──────────────────────────────────────────────────────────────────────────
 function generateLandPoints(count, radius) {
   const positions = [];
@@ -161,7 +185,7 @@ function generateLandPoints(count, radius) {
     tries++;
 
     const lat = Math.asin(y) * (180 / Math.PI);
-    const lon = (Math.atan2(z, x) * (180 / Math.PI));
+    const lon = Math.atan2(z, x) * (180 / Math.PI);
 
     if (!isLand(lon, lat)) continue;
 
@@ -183,7 +207,7 @@ function generateLandPoints(count, radius) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 5. ШЕЙДЕРНЫЙ МАТЕРИАЛ ТОЧЕК (мерцание + мягкое свечение точки)
+// 5. Шейдеры
 // ──────────────────────────────────────────────────────────────────────────
 const pointsVertexShader = `
   attribute float aSize;
@@ -202,7 +226,6 @@ const pointsVertexShader = `
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
-
 const pointsFragmentShader = `
   uniform vec3 uColor;
   uniform vec3 uColorBright;
@@ -215,10 +238,6 @@ const pointsFragmentShader = `
     gl_FragColor = vec4(color * vBrightness, alpha * vBrightness);
   }
 `;
-
-// ──────────────────────────────────────────────────────────────────────────
-// 6. АТМОСФЕРА (мягкое свечение по краю сферы, fresnel-like)
-// ──────────────────────────────────────────────────────────────────────────
 const atmosphereVertexShader = `
   varying vec3 vNormal;
   void main() {
@@ -237,7 +256,7 @@ const atmosphereFragmentShader = `
 `;
 
 // ──────────────────────────────────────────────────────────────────────────
-// 7. ОСНОВНОЙ КЛАСС
+// 6. Основной класс
 // ──────────────────────────────────────────────────────────────────────────
 class DreamGlobe {
   constructor(canvas) {
@@ -247,18 +266,24 @@ class DreamGlobe {
     this.isDragging = false;
     this.dragVelocity = { x: 0, y: 0 };
     this.pointer = { x: 0, y: 0 };
-    this.autoRotateResumeTimeout = null;
     this.paused = false;
+    this.arcs = [];
+    this.hubSprites = [];
+    this.rings = [];
 
     if (!checkWebGL()) {
       this.canvas.style.display = 'none';
-      return; // фон сайта (градиенты/orb-элементы) остаётся как запасной вариант
+      return;
     }
 
     this._initScene();
     this._buildGlobe();
+    this._buildGrid();
     this._buildAtmosphere();
+    this._buildHubs();
     this._buildArcs();
+    if (this.tier.rings) this._buildRings();
+    this._buildStarField();
     this._bindEvents();
     this._observeVisibility();
     this._onResize();
@@ -267,7 +292,7 @@ class DreamGlobe {
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
     this.camera.position.set(0, 0, 280);
 
     this.renderer = new THREE.WebGLRenderer({
@@ -281,6 +306,9 @@ class DreamGlobe {
     this.group = new THREE.Group();
     this.group.rotation.x = 0.28;
     this.scene.add(this.group);
+
+    this.starGroup = new THREE.Group();
+    this.scene.add(this.starGroup);
 
     if (this.tier.bloom && !prefersReducedMotion) {
       this.composer = new EffectComposer(this.renderer);
@@ -322,12 +350,55 @@ class DreamGlobe {
     this.pointsMesh = new THREE.Points(geometry, this.pointsMaterial);
     this.group.add(this.pointsMesh);
 
-    // Тонкая тёмная сфера-ядро, чтобы точки не "просвечивали" насквозь
     const core = new THREE.Mesh(
       new THREE.SphereGeometry(CONFIG.radius * 0.985, 48, 48),
       new THREE.MeshBasicMaterial({ color: 0x05070f, transparent: true, opacity: 0.55 })
     );
     this.group.add(core);
+  }
+
+  // Wireframe-сетка широт/долгот поверх глобуса
+  _buildGrid() {
+    const gridGroup = new THREE.Group();
+    const material = new THREE.LineBasicMaterial({
+      color: new THREE.Color(CONFIG.gridColor),
+      transparent: true,
+      opacity: CONFIG.gridOpacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const r = CONFIG.radius * 1.004;
+
+    // Параллели (широты)
+    for (let i = 1; i < CONFIG.gridLatLines; i++) {
+      const lat = -90 + (180 / CONFIG.gridLatLines) * i;
+      const phi = (90 - lat) * (Math.PI / 180);
+      const ringRadius = r * Math.sin(phi);
+      const y = r * Math.cos(phi);
+      const pts = [];
+      const seg = 64;
+      for (let s = 0; s <= seg; s++) {
+        const a = (s / seg) * Math.PI * 2;
+        pts.push(new THREE.Vector3(ringRadius * Math.cos(a), y, ringRadius * Math.sin(a)));
+      }
+      const geom = new THREE.BufferGeometry().setFromPoints(pts);
+      gridGroup.add(new THREE.LineLoop(geom, material));
+    }
+
+    // Меридианы (долготы)
+    for (let i = 0; i < CONFIG.gridLonLines; i++) {
+      const lon = (360 / CONFIG.gridLonLines) * i - 180;
+      const pts = [];
+      const seg = 64;
+      for (let s = 0; s <= seg; s++) {
+        const lat = -90 + (180 / seg) * s;
+        pts.push(latLonToVector3(lon, lat, r));
+      }
+      const geom = new THREE.BufferGeometry().setFromPoints(pts);
+      gridGroup.add(new THREE.Line(geom, material));
+    }
+
+    this.group.add(gridGroup);
   }
 
   _buildAtmosphere() {
@@ -348,10 +419,49 @@ class DreamGlobe {
     this.group.add(this.atmosphere);
   }
 
+  // Пульсирующие ореолы-узлы в городах-хабах (ядро + мягкое свечение)
+  _buildHubs() {
+    const glowTex = makeGlowTexture(CONFIG.hubGlowColor);
+    const coreTex = makeGlowTexture(CONFIG.hubCoreColor);
+
+    for (const [lon, lat] of HUBS) {
+      const pos = latLonToVector3(lon, lat, CONFIG.radius * 1.01);
+
+      const glowMaterial = new THREE.SpriteMaterial({
+        map: glowTex,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const glow = new THREE.Sprite(glowMaterial);
+      glow.position.copy(pos);
+      glow.scale.setScalar(CONFIG.hubGlowSize);
+      this.group.add(glow);
+
+      const coreMaterial = new THREE.SpriteMaterial({
+        map: coreTex,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const core = new THREE.Sprite(coreMaterial);
+      core.position.copy(pos);
+      core.scale.setScalar(CONFIG.hubGlowSize * 0.28);
+      this.group.add(core);
+
+      this.hubSprites.push({ glow, core, phase: Math.random() * Math.PI * 2 });
+    }
+  }
+
+  // Толстые светящиеся дуги (Line2) + летящие частицы
   _buildArcs() {
-    this.arcs = [];
     const arcCount = prefersReducedMotion ? 0 : this.tier.arcs;
     const usedPairs = new Set();
+    const c1 = new THREE.Color(CONFIG.arcColor);
+    const c2 = new THREE.Color(CONFIG.arcColorBright);
+    const glowTex = makeGlowTexture(CONFIG.arcColorBright);
 
     for (let i = 0; i < arcCount; i++) {
       const a = HUBS[Math.floor(Math.random() * HUBS.length)];
@@ -370,48 +480,105 @@ class DreamGlobe {
       mid.normalize().multiplyScalar(CONFIG.radius + dist * CONFIG.arcHeightFactor);
 
       const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-      const points = curve.getPoints(48);
-      const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+      const segCount = 48;
+      const points = curve.getPoints(segCount);
 
-      const colors = new Float32Array(points.length * 3);
-      const c1 = new THREE.Color(CONFIG.arcColor);
+      const positions = [];
+      const colors = [];
       for (let p = 0; p < points.length; p++) {
+        positions.push(points[p].x, points[p].y, points[p].z);
         const t = p / (points.length - 1);
-        const fade = Math.sin(t * Math.PI); // ярче в середине, тускнеет к краям
-        colors[p * 3] = c1.r * fade;
-        colors[p * 3 + 1] = c1.g * fade;
-        colors[p * 3 + 2] = c1.b * fade;
+        const fade = Math.pow(Math.sin(t * Math.PI), 0.8);
+        const mixed = c1.clone().lerp(c2, 0.3);
+        colors.push(mixed.r * fade, mixed.g * fade, mixed.b * fade);
       }
-      lineGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-      const lineMaterial = new THREE.LineBasicMaterial({
+      const lineGeom = new LineGeometry();
+      lineGeom.setPositions(positions);
+      lineGeom.setColors(colors);
+
+      const lineMaterial = new LineMaterial({
+        linewidth: CONFIG.arcLineWidth,
         vertexColors: true,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.85,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        worldUnits: false,
       });
-      const line = new THREE.Line(lineGeom, lineMaterial);
+      lineMaterial.resolution.set(window.innerWidth, window.innerHeight);
+
+      const line = new Line2(lineGeom, lineMaterial);
+      line.computeLineDistances();
       this.group.add(line);
 
-      // Летящая по дуге частица
-      const particleGeom = new THREE.SphereGeometry(1.6, 8, 8);
-      const particleMaterial = new THREE.MeshBasicMaterial({
-        color: CONFIG.arcColorBright,
+      const particleMaterial = new THREE.SpriteMaterial({
+        map: glowTex,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
-      const particle = new THREE.Mesh(particleGeom, particleMaterial);
+      const particle = new THREE.Sprite(particleMaterial);
+      particle.scale.setScalar(6.5);
       this.group.add(particle);
 
-      this.arcs.push({
-        curve,
-        particle,
-        offset: Math.random(),
-      });
+      this.arcs.push({ curve, particle, lineMaterial, offset: Math.random() });
     }
+  }
+
+  // Наклонные декоративные кольца-орбиты вокруг глобуса
+  _buildRings() {
+    CONFIG.ringTilts.forEach((tilt, idx) => {
+      const color = CONFIG.ringColors[idx % CONFIG.ringColors.length];
+      const r = CONFIG.radius * (1.55 + idx * 0.22);
+      const pts = [];
+      const seg = 128;
+      for (let s = 0; s <= seg; s++) {
+        const a = (s / seg) * Math.PI * 2;
+        pts.push(new THREE.Vector3(r * Math.cos(a), 0, r * Math.sin(a)));
+      }
+      const geom = new THREE.BufferGeometry().setFromPoints(pts);
+      const material = new THREE.LineBasicMaterial({
+        color: new THREE.Color(color),
+        transparent: true,
+        opacity: CONFIG.ringOpacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const ring = new THREE.LineLoop(geom, material);
+      ring.rotation.x = tilt[0];
+      ring.rotation.y = tilt[1];
+      this.group.add(ring);
+      this.rings.push({ mesh: ring, spin: CONFIG.ringSpin[idx % CONFIG.ringSpin.length] });
+    });
+  }
+
+  // Звёздное поле для глубины фона
+  _buildStarField() {
+    const count = this.tier.stars;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const r = THREE.MathUtils.randFloat(CONFIG.starFieldRadiusMin, CONFIG.starFieldRadiusMax);
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({
+      color: new THREE.Color(CONFIG.starFieldColor),
+      size: 1.1,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.starField = new THREE.Points(geom, material);
+    this.starGroup.add(this.starField);
   }
 
   _bindEvents() {
@@ -419,7 +586,6 @@ class DreamGlobe {
       this.isDragging = true;
       this.pointer.x = e.clientX;
       this.pointer.y = e.clientY;
-      clearTimeout(this.autoRotateResumeTimeout);
     });
     window.addEventListener('pointermove', (e) => {
       if (!this.isDragging) return;
@@ -438,9 +604,7 @@ class DreamGlobe {
     });
     window.addEventListener('pointerup', () => {
       this.isDragging = false;
-      this.autoRotateResumeTimeout = setTimeout(() => {}, 1200);
     });
-
     window.addEventListener('resize', () => this._onResize());
   }
 
@@ -472,6 +636,9 @@ class DreamGlobe {
     this.renderer.setSize(width, height);
     if (this.composer) this.composer.setSize(width, height);
     if (this.pointsMaterial) this.pointsMaterial.uniforms.uPixelRatio.value = pr;
+    for (const arc of this.arcs) {
+      arc.lineMaterial.resolution.set(width, height);
+    }
   }
 
   _animate() {
@@ -485,15 +652,30 @@ class DreamGlobe {
 
     if (!this.isDragging && !prefersReducedMotion) {
       this.group.rotation.y += CONFIG.autoRotateSpeed * delta;
-      // затухание инерции после отпускания
       this.dragVelocity.x *= CONFIG.dragRotateDamping;
       this.group.rotation.y += this.dragVelocity.x * 0.3;
     }
 
+    // Дуги: движение частиц + вспышка на подлёте к узлу
     for (const arc of this.arcs) {
       arc.offset = (arc.offset + delta * CONFIG.particleSpeed) % 1;
       const pos = arc.curve.getPointAt(arc.offset);
       arc.particle.position.copy(pos);
+      const edgeProximity = Math.min(arc.offset, 1 - arc.offset);
+      const burst = edgeProximity < 0.06 ? 1.6 : 1.0;
+      arc.particle.scale.setScalar(6.5 * burst);
+    }
+
+    // Пульсация ореолов узлов
+    if (!prefersReducedMotion) {
+      for (const hub of this.hubSprites) {
+        const pulse = 1 + Math.sin(elapsed * CONFIG.hubPulseSpeed + hub.phase) * CONFIG.hubPulseAmount;
+        hub.glow.scale.setScalar(CONFIG.hubGlowSize * pulse);
+      }
+      for (const ring of this.rings) {
+        ring.mesh.rotation.z += ring.spin * delta;
+      }
+      if (this.starField) this.starGroup.rotation.y += 0.003 * delta;
     }
 
     if (this.composer) {
@@ -505,7 +687,7 @@ class DreamGlobe {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 8. ИНИЦИАЛИЗАЦИЯ
+// 7. Инициализация
 // ──────────────────────────────────────────────────────────────────────────
 function init() {
   const canvas = document.getElementById('dream-globe-canvas');
