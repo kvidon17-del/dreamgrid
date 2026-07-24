@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Dream Grid — глобус v22 (направленное свечение + координатная сетка)</title>
+<!--
+  DREAM GRID — BASELINE ГЛОБУСА
+  ==============================
+  Это актуальная сохранённая версия прототипа 3D-глобуса для главной страницы.
+  Стек: globe.gl (ES-модуль через jsdelivr CDN), без npm/сборки.
+
+  ЧТО УЖЕ РЕАЛИЗОВАНО:
+  - Ночная текстура Земли (three-globe earth-night.jpg) + реальные границы стран
+    (Natural Earth GeoJSON), усиленный фирменный фиолетовый цвет границ.
+  - Точки-мечты (HUBS, ~42 декоративных города) — яркое золото, самые заметные точки на глобусе.
+  - Точки-пыль по НАСТОЯЩЕЙ маске суши/воды (earth-water.png) — покрывает все материки
+    и острова, максимально мелкие, насыщенно-золотые (усилено до максимума по запросу).
+  - Мягкая неоново-фиолетовая атмосфера (штатный слой globe.gl, дешёвый rim-light).
+  - Реалистичные canvas-метеоры (не CSS-полоски): органичная кривая траектория (Безье),
+    естественное ускорение/замедление, светящаяся головка, затухающий хвост, лёгкое мерцание,
+    аддитивное свечение. Золотой цвет. Два независимых слоя:
+      - фон (за глобусом) — раз в ~4.5 сек, тусклее
+      - передний план (перед глобусом) — раз в ~10 сек, ярче
+  - Статичный звёздный фон (canvas, ~240 звёзд, два уровня глубины) позади всего,
+    с едва заметным CSS-параллаксом. Фон — радиальный градиент тёмного ночного неба.
+  - CSS-имитация bloom (copy-canvas + blur + screen-blend) — НЕ EffectComposer/UnrealBloomPass.
+
+  ВАЖНЫЕ ТЕХНИЧЕСКИЕ УРОКИ (не наступать на те же грабли):
+  - НЕ смешивать отдельно импортированный three.js/three/addons (EffectComposer,
+    RenderPass, UnrealBloomPass) с внутренним three.js внутри globe.gl — вызывает
+    "Cannot read properties of undefined" на каждый кадр (проверено дважды).
+  - НЕ использовать .htmlElementsData() — тоже вызывало конфликт версий Three.js.
+  - Анимация с перестроением ВСЕХ точек (.pointsData() с 16000+ точек) каждые ~250мс —
+    слишком тяжело, сильно тормозит. Полная пересборка geometry должна быть редкой
+    или на маленьком объёме данных.
+  - Пульсация точек была реализована через .ringsData() (штатный слой) — работало,
+    но по запросу пользователя убрана полностью (не нужна была в итоге).
+  - Текстуры с solarsystemscope.com напрямую — НЕ отдают CORS-заголовки для WebGL,
+    рушат текстуру (чёрный глобус). Тот же файл с upload.wikimedia.org — работает.
+  - Отрицательный z-index у canvas-слоёв — ненадёжен кросс-браузерно; надёжнее задавать
+    порядок через обычный порядок элементов в DOM + z-index 0/1/2/3 без отрицательных значений.
+
+  НОВОЕ В v22 (относительно BASELINE-v21):
+  - Направленное атмосферное свечение: CSS radial-gradient оверлей (#atmo-glow), зафиксирован
+    в экранных координатах (имитация источника света с одной стороны, не вращается с глобусом).
+  - Координатная сетка (меридианы/параллели каждые 30°) — собственный pathsData-слой
+    (НЕ встроенный showGraticules — так проще контролировать прозрачность), приглушённый
+    фиолетовый, низкая непрозрачность (0.16).
+
+  ДАЛЬШЕ ПО ПЛАНУ (не начато или отложено):
+  - Explore Dreams: тот же глобус, но с реальными координатами мечт из Supabase
+    (таблица cells), кликабельные точки → переход на dream.html, зум/вращение включены
+    (сейчас на главной странице зум специально отключён — декоративный фон).
+  - Интеграция в реальный index.html/dream-globe.js на сайте (текущий прототип —
+    отдельный самостоятельный тестовый HTML-файл, ещё не влит в продакшн).
+-->
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 30%, #0d1230 0%, #070a1c 45%, #030309 100%);
+  }
+  #stage { position: relative; width: 100vw; height: 100vh; }
+
+  #stars-static {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+    animation: starsDrift 60s ease-in-out infinite alternate;
+  }
+  @keyframes starsDrift {
+    0%   { transform: translate(0px, 0px) scale(1.02); }
+    100% { transform: translate(-4px, 3px) scale(1.02); }
+  }
+
+  #star-layer-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  #globeViz { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+
+  /* Направленное атмосферное свечение — имитация "источника света" с одной стороны.
+     Зафиксировано в экранных координатах (не вращается вместе с глобусом) — это декоративный
+     приём, не физическая симуляция. */
+  #atmo-glow {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    background: radial-gradient(circle at 70% 30%,
+      rgba(200, 170, 255, 0.55) 0%,
+      rgba(159, 122, 246, 0.28) 20%,
+      rgba(124, 92, 246, 0.0) 45%);
+    filter: blur(28px);
+    mix-blend-mode: screen;
+    opacity: 0.6;
+  }
+
+  #glow-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    filter: blur(14px) saturate(1.5) brightness(1.35);
+    opacity: 0.4;
+    mix-blend-mode: screen;
+    z-index: 3;
+  }
+  #star-layer-fg { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+
+  #hint {
+    position: fixed; left: 16px; bottom: 14px; color: rgba(255,255,255,0.55);
+    font: 13px system-ui, sans-serif; pointer-events: none; z-index: 5;
+  }
+  #title {
+    position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
+    color: #fff; font: 600 32px system-ui, sans-serif; letter-spacing: 0.5px;
+    text-shadow: 0 0 20px rgba(217,70,239,0.5);
+    pointer-events: none; z-index: 5;
+  }
+  #credit {
+    position: fixed; right: 16px; top: 14px; color: rgba(255,255,255,0.35);
+    font: 11px system-ui, sans-serif; pointer-events: none; text-align: right; z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div id="title">Dream Grid</div>
+<div id="stage">
+  <canvas id="stars-static"></canvas>
+  <canvas id="star-layer-bg"></canvas>
+  <div id="globeViz"></div>
+  <div id="atmo-glow"></div>
+  <canvas id="glow-canvas"></canvas>
+  <canvas id="star-layer-fg"></canvas>
+</div>
+<div id="hint">BASELINE — сохранённая версия для продолжения работы в новом чате</div>
+<div id="credit">Earth textures © three-globe (демо-набор)</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "globe.gl": "https://cdn.jsdelivr.net/npm/globe.gl/+esm"
+  }
+}
+</script>
+
+<script type="module">
+import Globe from 'globe.gl';
+
+const PALETTE = {
+  pointMajor: '#ffb84d',
+  pointMinor: '#ffe29a',
+  landDustBase: '#ffb300',    // максимально насыщенный, чистый золотой
+  landDustBright: '#fff3c4',  // почти белое золото — самые яркие вкрапления
+  capital: '#7ef4ff',         // яркий контрастный электрик-циан — отличает настоящие столицы от декоративных хабов
+  atmosphere: '#7c5cf6',
+  border: 'rgba(196, 165, 253, 0.6)', // заметно ярче/насыщеннее, фирменный фиолетовый оттенок
+};
+
+const HUBS = [
+  [-74.0, 40.7, 1],[-0.1, 51.5, 1],[2.35, 48.85, 1],[13.4, 52.5, 2],[37.6, 55.75, 1],
+  [139.7, 35.7, 1],[116.4, 39.9, 1],[121.5, 31.2, 1],[77.2, 28.6, 1],[72.85, 19.07, 2],
+  [103.8, 1.35, 1],[151.2, -33.9, 2],[-46.6, -23.5, 1],[-58.4, -34.6, 2],[31.2, 30.0, 2],
+  [55.3, 25.2, 1],[-99.1, 19.4, 1],[28.9, 41.0, 2],[4.9, 52.37, 2],[-3.7, 40.4, 2],
+  [12.5, 41.9, 2],[18.06, 59.33, 2],[24.9, 60.2, 2],[30.5, 50.45, 2],[126.98, 37.57, 2],
+  [100.5, 13.75, 2],[106.85, -6.2, 2],[153.02, -27.47, 2],[174.76, -36.85, 2],[-79.4, 43.65, 2],
+  [-122.4, 37.77, 1],[-118.2, 34.05, 2],[-87.6, 41.88, 2],[-43.2, -22.9, 2],[-70.6, -33.45, 2],
+  [36.8, -1.29, 2],[28.05, -26.2, 2],[3.4, 6.45, 2],[15.5, -4.3, 2],[46.7, 24.7, 2],
+  [67.0, 24.86, 2],[90.4, 23.8, 2],[114.15, 22.28, 2],
+];
+const hubPoints = HUBS.map(([lng, lat, tier]) => ({ lat, lng, tier, kind: 'hub' }));
+
+const globe = new Globe(document.getElementById('globeViz'))
+  .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+  .backgroundColor('rgba(0,0,0,0)')
+  .showAtmosphere(true)
+  .atmosphereColor('#b660f5')   // фирменный неоново-фиолетовый Dream Grid вместо бело-голубого
+  .atmosphereAltitude(0.19)     // чуть плотнее/заметнее — лёгкий неоновый эффект
+
+  // Точки-пыль и точки-мечты — один слой (как в проверенной baseline-версии)
+  .pointsData(hubPoints)
+  .pointLat('lat')
+  .pointLng('lng')
+  .pointColor(d => {
+    if (d.kind === 'land') return d.bright ? PALETTE.landDustBright : PALETTE.landDustBase;
+    if (d.kind === 'capital') return PALETTE.capital;
+    return d.tier === 1 ? PALETTE.pointMajor : PALETTE.pointMinor;
+  })
+  .pointAltitude(d => {
+    if (d.kind === 'land') return 0.0005;
+    if (d.kind === 'capital') return 0.009; // выше decorативных хабов — визуально поверх них
+    return 0.006;
+  })
+  .pointRadius(d => {
+    if (d.kind === 'land') return d.bright ? 0.075 : 0.04;
+    if (d.kind === 'capital') return 0.42;
+    return d.tier === 1 ? 0.55 : 0.34;
+  })
+  .pointResolution(d => d.kind === 'land' ? 3 : 12)
+  .pointsMerge(true)
+
+  .width(window.innerWidth)
+  .height(window.innerHeight);
+
+globe.controls().autoRotate = true;
+globe.controls().autoRotateSpeed = 0.45;
+globe.controls().enableZoom = true;
+globe.controls().minDistance = 120;
+globe.controls().maxDistance = 500;
+globe.pointOfView({ lat: 25, lng: 20, altitude: 1.7 }, 0);
+
+fetch('https://cdn.jsdelivr.net/gh/vasturiano/globe.gl/example/datasets/ne_110m_admin_0_countries.geojson')
+  .then(res => res.json())
+  .then(countries => {
+    globe
+      .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ'))
+      .polygonCapColor(() => 'rgba(0,0,0,0)')
+      .polygonSideColor(() => 'rgba(0,0,0,0)')
+      .polygonStrokeColor(() => PALETTE.border)
+      .polygonAltitude(0.0015);
+  });
+
+window.addEventListener('resize', () => {
+  globe.width(window.innerWidth);
+  globe.height(window.innerHeight);
+});
+
+// ── Координатная сетка (меридианы/параллели) — свой pathsData-слой,
+// НЕ встроенный showGraticules(), чтобы полностью контролировать прозрачность/яркость ──
+function buildGraticulePaths() {
+  const paths = [];
+  // Меридианы каждые 10°, полюс-полюс
+  for (let lng = -180; lng < 180; lng += 10) {
+    const pts = [];
+    for (let lat = -90; lat <= 90; lat += 5) pts.push([lat, lng]);
+    paths.push(pts);
+  }
+  // Параллели каждые 10°, без полюсов
+  for (let lat = -80; lat <= 80; lat += 10) {
+    const pts = [];
+    for (let lng = -180; lng <= 180; lng += 5) pts.push([lat, lng]);
+    paths.push(pts);
+  }
+  return paths;
+}
+
+globe
+  .pathsData(buildGraticulePaths())
+  .pathPoints(d => d)
+  .pathPointLat(p => p[0])
+  .pathPointLng(p => p[1])
+  .pathColor(() => 'rgba(180, 160, 255, 0.10)') // бледный приглушённый фиолетовый, как было изначально
+  .pathStroke(0.22)
+  .pathTransitionDuration(0);
+
+// ── Общее состояние всех асинхронно подгружаемых слоёв точек ──────────
+// (пыль на суше и столицы грузятся независимо друг от друга; каждая, когда готова,
+// просто пересобирает общий pointsData — так ни один слой не блокирует другой)
+let landDustPoints = [];
+let capitalPoints = [];
+function refreshPoints() {
+  globe.pointsData([...landDustPoints, ...hubPoints, ...capitalPoints]);
+}
+
+// ── Золотая цифровая "пыль" по маске суши/воды ────────────────────────
+function loadLandMask(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      resolve({ data, width: canvas.width, height: canvas.height });
+    };
+    img.onerror = (e) => reject(new Error('image failed to load: ' + url));
+    img.src = url;
+  });
+}
+function isLandFromMask(mask, lon, lat) {
+  const x = Math.floor(((lon + 180) / 360) * mask.width) % mask.width;
+  const y = Math.min(mask.height - 1, Math.max(0, Math.floor(((90 - lat) / 180) * mask.height)));
+  const idx = (y * mask.width + x) * 4;
+  return mask.data[idx] < 128;
+}
+function generateLandDust(mask, count) {
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const pts = [];
+  let tries = 0;
+  const maxTries = count * 5;
+  while (pts.length < count && tries < maxTries) {
+    const y = 1 - (tries / (maxTries - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = golden * tries;
+    const x = Math.cos(theta) * r, z = Math.sin(theta) * r;
+    tries++;
+    const lat = Math.asin(y) * (180 / Math.PI);
+    const lon = Math.atan2(z, x) * (180 / Math.PI);
+    if (!isLandFromMask(mask, lon, lat)) continue;
+    pts.push({ lat, lng: lon, kind: 'land', bright: Math.random() < 0.18 });
+  }
+  return pts;
+}
+
+loadLandMask('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-water.png')
+  .then(mask => {
+    landDustPoints = generateLandDust(mask, 16000);
+    refreshPoints();
+  })
+  .catch(err => console.error('Не удалось загрузить маску суши:', err.message || err));
+
+// ── Столицы всех стран — настоящий открытый датасет, независимый слой ──
+// Источник: gist ofou/country-capital-lat-long-population.csv (зафиксирован по конкретной
+// ревизии, чтобы содержимое никогда не менялось из-под нас). Колонки: Country, Capital City,
+// Latitude, Longitude, Population, Capital Type.
+const CAPITALS_CSV_URL = 'https://gist.githubusercontent.com/ofou/df09a6834a8421b4f376c875194915c9/raw/355eb56e164ddc3cd1a9467c524422cb674e71a9/country-capital-lat-long-population.csv';
+
+function parseCapitalsCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const rows = lines.slice(1); // пропускаем заголовок
+  const out = [];
+  for (const line of rows) {
+    // Простой, но защищённый разбор CSV: учитывает поля в кавычках с запятыми внутри
+    const cells = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; continue; }
+      if (ch === ',' && !inQuotes) { cells.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    cells.push(cur);
+    if (cells.length < 4) continue;
+    const [country, capital, latStr, lngStr] = cells;
+    const lat = parseFloat(latStr);
+    const lng = parseFloat(lngStr);
+    if (!isFinite(lat) || !isFinite(lng)) continue;
+    out.push({ lat, lng, kind: 'capital', name: capital.trim(), country: country.trim() });
+  }
+  return out;
+}
+
+fetch(CAPITALS_CSV_URL)
+  .then(res => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.text();
+  })
+  .then(text => {
+    capitalPoints = parseCapitalsCSV(text);
+    refreshPoints();
+  })
+  .catch(err => console.error('Не удалось загрузить датасет столиц:', err.message || err));
+
+// ── CSS-свечение ─────────────────────────────────────────────────────
+const glowCanvas = document.getElementById('glow-canvas');
+const glowCtx = glowCanvas.getContext('2d');
+function resizeGlowCanvas() {
+  glowCanvas.width = window.innerWidth;
+  glowCanvas.height = window.innerHeight;
+}
+resizeGlowCanvas();
+window.addEventListener('resize', resizeGlowCanvas);
+function copyGlowFrame() {
+  requestAnimationFrame(copyGlowFrame);
+  const sourceCanvas = document.querySelector('#globeViz canvas');
+  if (!sourceCanvas) return;
+  glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
+  glowCtx.drawImage(sourceCanvas, 0, 0, glowCanvas.width, glowCanvas.height);
+}
+copyGlowFrame();
+
+// ── Статичный звёздный фон для ощущения глубины (рисуется один раз, не в цикле анимации) ──
+(function drawStaticStars() {
+  const canvas = document.getElementById('stars-static');
+  const ctx = canvas.getContext('2d');
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  canvas.width = w;
+  canvas.height = h;
+
+  // Дальний слой — больше количество, мельче и тусклее (~170)
+  for (let i = 0; i < 170; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const r = 0.4 + Math.random() * 0.5;
+    ctx.fillStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.25})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Ближний слой — меньше количество, крупнее и ярче (~70)
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const r = 0.8 + Math.random() * 1.0;
+    ctx.fillStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Итого ~240 звёзд
+})();
+
+
+// ── Реалистичные метеоры (canvas, аддитивное свечение, органичная траектория) ──
+// Два независимых слоя: фон (за глобусом, тусклее) и передний план (перед глобусом, ярче).
+
+function easeInOutQuad(t) {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+// Плавная огибающая яркости: быстрый разгон в начале, стабильное плато, мягкое затухание в конце
+function brightnessEnvelope(t) {
+  if (t < 0.12) return easeInOutQuad(t / 0.12);
+  if (t > 0.65) return 1 - easeInOutQuad((t - 0.65) / 0.35);
+  return 1;
+}
+
+class Meteor {
+  constructor(width, height, { brightnessScale = 1, headRadius = 3.2 } = {}) {
+    // Случайная стартовая точка (верхняя часть неба) и общее направление вниз с небольшим сносом
+    this.startX = Math.random() * width * 1.1 - width * 0.05;
+    this.startY = -20 - Math.random() * 40;
+    const travelX = (Math.random() * 2 - 1) * width * 0.35;
+    const travelY = height * (0.75 + Math.random() * 0.4);
+    this.endX = this.startX + travelX;
+    this.endY = this.startY + travelY;
+
+    // Небольшая органическая кривизна траектории — контрольная точка со смещением в сторону
+    const midX = (this.startX + this.endX) / 2;
+    const midY = (this.startY + this.endY) / 2;
+    const dx = this.endX - this.startX;
+    const dy = this.endY - this.startY;
+    const len = Math.hypot(dx, dy) || 1;
+    const perpX = -dy / len;
+    const perpY = dx / len;
+    const curveAmount = (Math.random() * 2 - 1) * len * 0.06;
+    this.ctrlX = midX + perpX * curveAmount;
+    this.ctrlY = midY + perpY * curveAmount;
+
+    this.duration = 800 + Math.random() * 1200; // 0.8–2 сек
+    this.elapsed = 0;
+    this.trail = [];
+    this.maxTrailPoints = 24;
+    this.headRadius = headRadius;
+    this.brightnessScale = brightnessScale;
+    this.tint = 'rgba(255,195,60,'; // яркое золото — единый цвет для всех метеоров
+    this.flickerSeed = Math.random() * 1000;
+    this.dead = false;
+  }
+
+  posAt(t) {
+    const it = 1 - t;
+    const x = it * it * this.startX + 2 * it * t * this.ctrlX + t * t * this.endX;
+    const y = it * it * this.startY + 2 * it * t * this.ctrlY + t * t * this.endY;
+    return { x, y };
+  }
+
+  update(dt, now) {
+    this.elapsed += dt;
+    const tLinear = Math.min(1, this.elapsed / this.duration);
+    const t = easeInOutQuad(tLinear); // естественное ускорение/замедление вдоль пути
+    const pos = this.posAt(t);
+
+    this.trail.push({ x: pos.x, y: pos.y, t: tLinear });
+    if (this.trail.length > this.maxTrailPoints) this.trail.shift();
+
+    if (tLinear >= 1) this.dead = true;
+    this.currentBrightness = brightnessEnvelope(tLinear) * this.brightnessScale;
+    // лёгкое мерцание
+    this.currentBrightness *= 1 + Math.sin(now * 0.03 + this.flickerSeed) * 0.08;
+  }
+
+  draw(ctx) {
+    if (this.trail.length < 2) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Хвост — сегменты с затуханием к старым точкам
+    for (let i = 1; i < this.trail.length; i++) {
+      const p0 = this.trail[i - 1];
+      const p1 = this.trail[i];
+      const age = i / this.trail.length; // 0 (старое) → 1 (новое/голова)
+      const alpha = age * age * this.currentBrightness * 0.5;
+      const width = Math.max(0.4, this.headRadius * age * 0.6);
+      ctx.strokeStyle = this.tint + alpha + ')';
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+
+    // Головка — яркое белое ядро + мягкое цветное свечение (bloom)
+    const head = this.trail[this.trail.length - 1];
+    const glowR = this.headRadius * 5;
+    const gradient = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, glowR);
+    gradient.addColorStop(0, `rgba(255,244,210,${0.95 * this.currentBrightness})`);
+    gradient.addColorStop(0.25, this.tint + (0.6 * this.currentBrightness) + ')');
+    gradient.addColorStop(1, this.tint + '0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(255,244,210,${Math.min(1, this.currentBrightness)})`;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, this.headRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+function createMeteorLayer(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  let meteors = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  let lastTime = performance.now();
+  function tick(now) {
+    requestAnimationFrame(tick);
+    const dt = now - lastTime;
+    lastTime = now;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    meteors.forEach(m => {
+      m.update(dt, now);
+      m.draw(ctx);
+    });
+    meteors = meteors.filter(m => !m.dead);
+  }
+  requestAnimationFrame(tick);
+
+  return {
+    spawn(opts) {
+      meteors.push(new Meteor(canvas.width, canvas.height, opts));
+    },
+  };
+}
+
+const bgMeteors = createMeteorLayer('star-layer-bg');
+const fgMeteors = createMeteorLayer('star-layer-fg');
+
+// Фон — раз в 4-5 секунд (было раз в 2 сек), тусклее
+setInterval(() => {
+  bgMeteors.spawn({ brightnessScale: 0.5, headRadius: 2.2 });
+}, 4500);
+
+// Передний план — раз в 10 секунд (было раз в 5 сек), ярче и крупнее
+setInterval(() => {
+  fgMeteors.spawn({ brightnessScale: 1, headRadius: 3.4 });
+}, 10000);
+
+</script>
+
+</body>
+</html>
