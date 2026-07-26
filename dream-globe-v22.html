@@ -47,6 +47,10 @@
     ярко-циановые точки, крупнее и выше остальных.
   - Координатная сетка и бегущая точка по экватору — ПРОБОВАЛИ, ОТМЕНЕНО по решению пользователя
     (оставили только атмосферное свечение и метеоры).
+  - Кроссфейд глобус → 2D-карта (Leaflet, тайлы CARTO): при приближении глобуса ниже altitude 0.40
+    плавно (600мс) проявляется настоящая карта поверх; при отдалении карты до зума ≤3 — обратный
+    переход на глобус. Значения зафиксированы по ручной калибровке пользователем в отдельном
+    тестовом прототипе (dream-globe-to-map-crossfade-TEST.html), калибровочная HUD-панель убрана.
 
   ДАЛЬШЕ ПО ПЛАНУ (не начато или отложено):
   - Explore Dreams: тот же глобус, но с реальными координатами мечт из Supabase
@@ -55,12 +59,30 @@
   - Интеграция в реальный index.html/dream-globe.js на сайте (текущий прототип —
     отдельный самостоятельный тестовый HTML-файл, ещё не влит в продакшн).
 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body {
     margin: 0; padding: 0; height: 100%; overflow: hidden;
     background: radial-gradient(ellipse at 50% 30%, #0d1230 0%, #070a1c 45%, #030309 100%);
   }
   #stage { position: relative; width: 100vw; height: 100vh; }
+
+  /* Обёртка всех декоративных слоёв глобуса — гаснет ЦЕЛИКОМ одним куском при переходе на карту
+     (звёзды, метеоры, атмосфера, сам глобус — всё вместе, а не по отдельности) */
+  #globe-scene {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    transition: opacity 600ms ease; /* значение зафиксировано по итогам калибровки пользователя */
+  }
+  #globe-scene.faded { opacity: 0; pointer-events: none; }
+
+  /* 2D-карта (Leaflet, те же тёмные тайлы CARTO, что в dashboard/explore) —
+     проявляется поверх глобуса при достаточном приближении */
+  #leafletMap {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    z-index: 4; opacity: 0; pointer-events: none;
+    transition: opacity 600ms ease;
+  }
+  #leafletMap.active { opacity: 1; pointer-events: auto; }
 
   #stars-static {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -121,12 +143,15 @@
 
 <div id="title">Dream Grid</div>
 <div id="stage">
-  <canvas id="stars-static"></canvas>
-  <canvas id="star-layer-bg"></canvas>
-  <div id="globeViz"></div>
-  <div id="atmo-glow"></div>
-  <canvas id="glow-canvas"></canvas>
-  <canvas id="star-layer-fg"></canvas>
+  <div id="globe-scene">
+    <canvas id="stars-static"></canvas>
+    <canvas id="star-layer-bg"></canvas>
+    <div id="globeViz"></div>
+    <div id="atmo-glow"></div>
+    <canvas id="glow-canvas"></canvas>
+    <canvas id="star-layer-fg"></canvas>
+  </div>
+  <div id="leafletMap"></div>
 </div>
 <div id="hint">BASELINE — сохранённая версия для продолжения работы в новом чате</div>
 <div id="credit">Earth textures © three-globe (демо-набор)</div>
@@ -136,8 +161,9 @@
   "imports": {
     "globe.gl": "https://cdn.jsdelivr.net/npm/globe.gl/+esm"
   }
-}
 </script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
 import Globe from 'globe.gl';
@@ -219,6 +245,65 @@ window.addEventListener('resize', () => {
   globe.width(window.innerWidth);
   globe.height(window.innerHeight);
 });
+
+// ── Кроссфейд глобус → 2D-карта (Leaflet, те же тёмные тайлы CARTO, что в dashboard/explore) ──
+// Значения зафиксированы по итогам ручной калибровки пользователем в отдельном тестовом прототипе
+// (dream-globe-to-map-crossfade-TEST.html): порог перехода altitude 0.40, зум входа 4, зум выхода 3,
+// длительность fade 600мс (см. также CSS-transition у #globe-scene/#leafletMap выше).
+const CROSSFADE = {
+  altThreshold: 0.40, // ниже этой высоты камеры глобуса — переход на карту
+  enterZoom: 4,       // с каким зумом открывается карта при входе
+  exitZoom: 3,        // при отдалении карты до этого зума — возврат на глобус
+};
+
+const sceneWrapper = document.getElementById('globe-scene');
+const leafletDiv = document.getElementById('leafletMap');
+const map = L.map(leafletDiv, {
+  zoomControl: true,
+  attributionControl: false,
+  dragging: true,
+  scrollWheelZoom: true,
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(map);
+map.setView([25, 20], CROSSFADE.enterZoom);
+
+let sceneMode = 'globe';
+
+function crossfadeToMap(lat, lng) {
+  sceneMode = 'map';
+  globe.controls().enabled = false;
+  sceneWrapper.classList.add('faded');
+  leafletDiv.classList.add('active');
+  map.setView([lat, lng], CROSSFADE.enterZoom, { animate: false });
+}
+
+function crossfadeToGlobe(lat, lng) {
+  sceneMode = 'globe';
+  sceneWrapper.classList.remove('faded');
+  leafletDiv.classList.remove('active');
+  globe.controls().enabled = true;
+  globe.pointOfView({ lat, lng, altitude: CROSSFADE.altThreshold * 1.15 }, 0);
+}
+
+map.on('zoomend', () => {
+  if (sceneMode === 'map' && map.getZoom() <= CROSSFADE.exitZoom) {
+    const c = map.getCenter();
+    crossfadeToGlobe(c.lat, c.lng);
+  }
+});
+
+function pollGlobeZoom() {
+  requestAnimationFrame(pollGlobeZoom);
+  if (sceneMode !== 'globe') return;
+  const pov = globe.pointOfView();
+  if (pov.altitude <= CROSSFADE.altThreshold) {
+    crossfadeToMap(pov.lat, pov.lng);
+  }
+}
+pollGlobeZoom();
 
 // ── Общее состояние всех асинхронно подгружаемых слоёв точек ──────────
 // (пыль на суше и столицы грузятся независимо друг от друга; каждая, когда готова,
