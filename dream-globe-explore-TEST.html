@@ -172,10 +172,10 @@
 import Globe from 'globe.gl';
 
 const PALETTE = {
-  // Цвета по тирам — те же оттенки, что уже используются в бейджах на explore.html
-  tierBasic: '#818cf8',
-  tierStandard: '#c084fc',
-  tierPremium: '#a78bfa',
+  // Цвета по тирам — насыщенные версии оттенков из бейджей explore.html, для яркости на глобусе
+  tierBasic: '#a78bfa',
+  tierStandard: '#e879f9',
+  tierPremium: '#f472b6',
   tierVip: '#fbbf24',
   landDustBase: '#ffb300',    // максимально насыщенный, чистый золотой
   landDustBright: '#fff3c4',  // почти белое золото — самые яркие вкрапления
@@ -185,6 +185,10 @@ const PALETTE = {
 };
 const TIER_COLOR = { basic: PALETTE.tierBasic, standard: PALETTE.tierStandard, premium: PALETTE.tierPremium, vip: PALETTE.tierVip };
 const TIER_RADIUS = { basic: 0.30, standard: 0.42, premium: 0.52, vip: 0.66 };
+// Адаптивный множитель размера точек-мечт: чем меньше мечт в базе — тем крупнее точки
+// (чтобы 1-2 мечты не терялись на глобусе), с ростом количества точки плавно уменьшаются
+// до базового размера (см. loadRealDreams() ниже, где пересчитывается по факту).
+let dreamCountScale = 3; // стартовое значение "как будто мечт мало" — обновится после загрузки
 
 const globe = new Globe(document.getElementById('globeViz'))
   .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
@@ -205,13 +209,14 @@ const globe = new Globe(document.getElementById('globeViz'))
   })
   .pointAltitude(d => {
     if (d.kind === 'land') return 0.0005;
-    if (d.kind === 'capital') return 0.014; // ещё выше — точно поверх всего остального
-    return 0.008; // мечты — заметно над поверхностью
+    if (d.kind === 'capital') return 0.014;
+    if (d.kind === 'dream') return 0.018; // мечты — выше вообще всего, они главный контент
+    return 0.008;
   })
   .pointRadius(d => {
     if (d.kind === 'land') return d.bright ? 0.075 : 0.04;
     if (d.kind === 'capital') return 0.68;
-    if (d.kind === 'dream') return TIER_RADIUS[d.tier] || TIER_RADIUS.basic;
+    if (d.kind === 'dream') return (TIER_RADIUS[d.tier] || TIER_RADIUS.basic) * dreamCountScale;
     return 0.3;
   })
   .pointResolution(d => d.kind === 'land' ? 3 : 12)
@@ -326,6 +331,12 @@ const sb = createClient(
   'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
 );
 
+// Слой маркеров-мечт на 2D-карте (те же тиры/цвета, что на глобусе). Радиус в пикселях —
+// поэтому при приближении карты маркер НЕ "разрастается" геометрически, а остаётся компактным
+// и просто точно указывает на конкретное место — ровно как и должно быть у гео-меток.
+const TIER_MAP_RADIUS_PX = { basic: 5, standard: 6, premium: 7, vip: 9 };
+const dreamMarkersLayer = L.layerGroup().addTo(map);
+
 async function loadRealDreams() {
   const { data, error } = await sb.from('cells')
     .select('lat,lng,tier,dreams(id,title)')
@@ -340,7 +351,28 @@ async function loadRealDreams() {
       return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title };
     })
     .filter(Boolean);
+
+  // Чем меньше мечт — тем крупнее точки на глобусе (чтобы 1-2 мечты не терялись),
+  // с ростом количества плавно уменьшается до базового размера (не ниже ×1).
+  const n = Math.max(dreamPoints.length, 1);
+  dreamCountScale = Math.max(1, Math.min(3, 6 / Math.sqrt(n)));
+
   refreshPoints();
+
+  dreamMarkersLayer.clearLayers();
+  for (const d of dreamPoints) {
+    const marker = L.circleMarker([d.lat, d.lng], {
+      radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
+      color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+      fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+      fillOpacity: 0.9,
+      weight: 2,
+      opacity: 1,
+    });
+    marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
+    marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
+    marker.addTo(dreamMarkersLayer);
+  }
 }
 loadRealDreams();
 
