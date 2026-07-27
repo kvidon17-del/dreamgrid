@@ -63,16 +63,41 @@
     font-size: 13px; font-weight: 600; border: none; cursor: pointer;
   }
 
-  /* ── ГЕРОЙ-ГЛОБУС (заменяет старую .explore-map-wrap / #map-canvas) ───────────── */
+  /* ── ТЕКСТ НАД ГЛОБУСОМ — обычный блок в потоке, НЕ поверх глобуса ───────────── */
+  .hero-text {
+    position: relative; z-index: 2;
+    padding: 130px 24px 24px;
+    text-align: center;
+    background: radial-gradient(ellipse at 50% 0%, rgba(124,92,246,0.12) 0%, transparent 70%);
+  }
+  .hero-text h1 {
+    font-family: 'Sora',sans-serif;
+    font-size: clamp(32px,5vw,56px);
+    font-weight: 900; color: #fff;
+    letter-spacing: -1.5px; margin-bottom: 12px;
+  }
+  .hero-text h1 span {
+    background: linear-gradient(90deg,#a78bfa,#f472b6);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero-text p { font-size: 16px; color: rgba(255,255,255,0.6); margin-bottom: 28px; }
+  .stats-mini { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+  .stat-mini { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.65); }
+  .stat-mini strong { color: #fff; font-weight: 700; }
+
+  /* ── ГЕРОЙ-ГЛОБУС — показывает только ВЕРХНЮЮ половину, обрезан по нижнему краю ───── */
   .hero-globe {
-    position: relative; min-height: 100vh; overflow: hidden;
+    position: relative; height: 58vh; overflow: hidden;
     background: radial-gradient(ellipse at 50% 30%, #0d1230 0%, #070a1c 45%, #030309 100%);
   }
   #stage { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-  /* Обёртка всех декоративных слоёв глобуса — гаснет ЦЕЛИКОМ одним куском при переходе на карту */
+  /* Обёртка всех декоративных слоёв глобуса — сама выше видимой области (200%), чтобы центр
+     сферы оказался НИЖЕ нижнего края .hero-globe — видна только её верхняя половина.
+     Обрезается overflow:hidden у родителя .hero-globe. Значение 200% — отправная точка,
+     можно потом подстроить по факту, если сфера окажется крупнее/мельче ожидаемого. */
   #globe-scene {
-    position: absolute; inset: 0; width: 100%; height: 100%;
+    position: absolute; top: 0; left: 0; width: 100%; height: 200%;
     transition: opacity 600ms ease;
   }
   #globe-scene.faded { opacity: 0; pointer-events: none; }
@@ -116,36 +141,15 @@
   }
   #star-layer-fg { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
   #credit {
-    position: absolute; right: 16px; top: 84px; color: rgba(255,255,255,0.35);
+    position: absolute; right: 16px; bottom: 14px; color: rgba(255,255,255,0.35);
     font: 11px system-ui, sans-serif; pointer-events: none; text-align: right; z-index: 5;
   }
 
-  /* Текст поверх глобуса — гаснет вместе с ним при переходе на карту (лежит внутри #globe-scene) */
-  .hero-content {
-    position: relative; z-index: 2;
-    height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 120px 24px 60px; pointer-events: none;
-  }
-  .hero-content h1 {
-    font-family: 'Sora',sans-serif;
-    font-size: clamp(36px,5.5vw,64px);
-    font-weight: 900; color: #fff;
-    letter-spacing: -1.5px; margin-bottom: 14px;
-    text-shadow: 0 0 40px rgba(124,92,246,0.4);
-  }
-  .hero-content h1 span {
-    background: linear-gradient(90deg,#a78bfa,#f472b6);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  }
-  .hero-content p { font-size: 17px; color: rgba(255,255,255,0.65); margin-bottom: 36px; }
-  .stats-mini { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
-  .stat-mini { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.65); }
-  .stat-mini strong { color: #fff; font-weight: 700; }
   .scroll-hint {
-    position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
     display: flex; flex-direction: column; align-items: center; gap: 8px;
     color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
-    z-index: 2; pointer-events: none;
+    z-index: 5; pointer-events: none;
   }
   .scroll-ring {
     width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25);
@@ -311,7 +315,18 @@
   </div>
 </nav>
 
-<!-- ГЕРОЙ-ГЛОБУС (заменяет старую .explore-map-wrap) -->
+<!-- ТЕКСТ НАД ГЛОБУСОМ -->
+<div class="hero-text">
+  <h1>Explore <span>Dreams</span> 🌍</h1>
+  <p>Discover what people around the world are dreaming of</p>
+  <div class="stats-mini">
+    <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
+    <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
+    <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
+  </div>
+</div>
+
+<!-- ГЕРОЙ-ГЛОБУС (заменяет старую .explore-map-wrap) — видна только верхняя половина -->
 <section class="hero-globe">
   <div id="stage">
     <div id="globe-scene">
@@ -321,16 +336,6 @@
       <div id="atmo-glow"></div>
       <canvas id="glow-canvas"></canvas>
       <canvas id="star-layer-fg"></canvas>
-
-      <div class="hero-content">
-        <h1>Explore <span>Dreams</span> 🌍</h1>
-        <p>Discover what people around the world are dreaming of — zoom in to see them up close</p>
-        <div class="stats-mini">
-          <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
-          <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
-          <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
-        </div>
-      </div>
     </div>
     <div id="leafletMap"></div>
     <div id="credit">Earth textures © three-globe (демо-набор)</div>
