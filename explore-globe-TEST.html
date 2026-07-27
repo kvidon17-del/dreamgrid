@@ -63,12 +63,30 @@
     font-size: 13px; font-weight: 600; border: none; cursor: pointer;
   }
 
-  /* ── ТЕКСТ НАД ГЛОБУСОМ — обычный блок в потоке, НЕ поверх глобуса ───────────── */
+  /* ── ЕДИНЫЙ ОБЁРТЫВАЮЩИЙ БЛОК: текст + глобус на ОДНОМ общем звёздном фоне ──────
+     Звёзды и метеоры теперь дети .hero-wrap (а не вложены внутрь глобуса) — растянуты
+     на весь блок целиком (текст + глобус), поэтому нет видимой границы между ними. */
+  .hero-wrap {
+    position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 15%, #171b40 0%, #0b0e26 35%, #050612 70%, #030309 100%);
+  }
+  #stars-static, #star-layer-bg, #star-layer-fg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  #stars-static { z-index: 0; animation: starsDrift 60s ease-in-out infinite alternate; }
+  @keyframes starsDrift {
+    0%   { transform: translate(0px, 0px) scale(1.02); }
+    100% { transform: translate(-4px, 3px) scale(1.02); }
+  }
+  #star-layer-bg { z-index: 0; } /* за глобусом */
+  #star-layer-fg { z-index: 5; } /* перед глобусом и текстом — кометы пролетают поверх всего */
+
+  /* ── ТЕКСТ НАД ГЛОБУСОМ — обычный блок в потоке, свой фон убран (общий фон родителя) ── */
   .hero-text {
     position: relative; z-index: 2;
     padding: 130px 24px 24px;
     text-align: center;
-    background: radial-gradient(ellipse at 50% 0%, rgba(124,92,246,0.12) 0%, transparent 70%);
   }
   .hero-text h1 {
     font-family: 'Sora',sans-serif;
@@ -85,17 +103,13 @@
   .stat-mini { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.65); }
   .stat-mini strong { color: #fff; font-weight: 700; }
 
-  /* ── ГЕРОЙ-ГЛОБУС — показывает только ВЕРХНЮЮ половину, обрезан по нижнему краю ───── */
-  .hero-globe {
-    position: relative; height: 58vh; overflow: hidden;
-    background: radial-gradient(ellipse at 50% 30%, #0d1230 0%, #070a1c 45%, #030309 100%);
-  }
+  /* ── ГЕРОЙ-ГЛОБУС — показывает только ВЕРХНЮЮ половину, свой фон убран (общий фон родителя) ── */
+  .hero-globe { position: relative; height: 58vh; overflow: hidden; }
   #stage { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-  /* Обёртка всех декоративных слоёв глобуса — сама выше видимой области (200%), чтобы центр
+  /* Обёртка декоративных слоёв САМОГО глобуса — сама выше видимой области (200%), чтобы центр
      сферы оказался НИЖЕ нижнего края .hero-globe — видна только её верхняя половина.
-     Обрезается overflow:hidden у родителя .hero-globe. Значение 200% — отправная точка,
-     можно потом подстроить по факту, если сфера окажется крупнее/мельче ожидаемого. */
+     Обрезается overflow:hidden у родителя .hero-globe. Значение 200% — отправная точка. */
   #globe-scene {
     position: absolute; top: 0; left: 0; width: 100%; height: 200%;
     transition: opacity 600ms ease;
@@ -109,16 +123,6 @@
   }
   #leafletMap.active { opacity: 1; pointer-events: auto; }
 
-  #stars-static {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 0; pointer-events: none;
-    animation: starsDrift 60s ease-in-out infinite alternate;
-  }
-  @keyframes starsDrift {
-    0%   { transform: translate(0px, 0px) scale(1.02); }
-    100% { transform: translate(-4px, 3px) scale(1.02); }
-  }
-  #star-layer-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
   #globeViz { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
   #atmo-glow {
     position: absolute; inset: 0; width: 100%; height: 100%;
@@ -139,17 +143,22 @@
     mix-blend-mode: screen;
     z-index: 3;
   }
-  #star-layer-fg { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+  /* Мягкий переход внизу глобуса в обычный фон страницы — без резкой границы */
+  .hero-bottom-fade {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 140px;
+    background: linear-gradient(to bottom, transparent, var(--bg));
+    pointer-events: none; z-index: 6;
+  }
   #credit {
     position: absolute; right: 16px; bottom: 14px; color: rgba(255,255,255,0.35);
-    font: 11px system-ui, sans-serif; pointer-events: none; text-align: right; z-index: 5;
+    font: 11px system-ui, sans-serif; pointer-events: none; text-align: right; z-index: 7;
   }
 
   .scroll-hint {
     position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
     display: flex; flex-direction: column; align-items: center; gap: 8px;
     color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
-    z-index: 5; pointer-events: none;
+    z-index: 7; pointer-events: none;
   }
   .scroll-ring {
     width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25);
@@ -315,36 +324,42 @@
   </div>
 </nav>
 
-<!-- ТЕКСТ НАД ГЛОБУСОМ -->
-<div class="hero-text">
-  <h1>Explore <span>Dreams</span> 🌍</h1>
-  <p>Discover what people around the world are dreaming of</p>
-  <div class="stats-mini">
-    <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
-    <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
-    <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
-  </div>
-</div>
+<!-- ЕДИНЫЙ БЛОК: текст + глобус на общем звёздном фоне (без видимых границ между ними) -->
+<div class="hero-wrap" id="hero-wrap">
+  <canvas id="stars-static"></canvas>
+  <canvas id="star-layer-bg"></canvas>
 
-<!-- ГЕРОЙ-ГЛОБУС (заменяет старую .explore-map-wrap) — видна только верхняя половина -->
-<section class="hero-globe">
-  <div id="stage">
-    <div id="globe-scene">
-      <canvas id="stars-static"></canvas>
-      <canvas id="star-layer-bg"></canvas>
-      <div id="globeViz"></div>
-      <div id="atmo-glow"></div>
-      <canvas id="glow-canvas"></canvas>
-      <canvas id="star-layer-fg"></canvas>
+  <!-- ТЕКСТ НАД ГЛОБУСОМ -->
+  <div class="hero-text">
+    <h1>Explore <span>Dreams</span> 🌍</h1>
+    <p>Discover what people around the world are dreaming of</p>
+    <div class="stats-mini">
+      <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
+      <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
+      <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
     </div>
-    <div id="leafletMap"></div>
+  </div>
+
+  <!-- ГЕРОЙ-ГЛОБУС (заменяет старую .explore-map-wrap) — видна только верхняя половина -->
+  <section class="hero-globe">
+    <div id="stage">
+      <div id="globe-scene">
+        <div id="globeViz"></div>
+        <div id="atmo-glow"></div>
+        <canvas id="glow-canvas"></canvas>
+      </div>
+      <div id="leafletMap"></div>
+    </div>
+    <div class="hero-bottom-fade"></div>
     <div id="credit">Earth textures © three-globe (демо-набор)</div>
-  </div>
-  <div class="scroll-hint">
-    <div class="scroll-ring">↓</div>
-    <span>Scroll for list</span>
-  </div>
-</section>
+    <div class="scroll-hint">
+      <div class="scroll-ring">↓</div>
+      <span>Scroll for list</span>
+    </div>
+  </section>
+
+  <canvas id="star-layer-fg"></canvas>
+</div>
 
 <!-- FILTERS -->
 <div class="filters-bar">
@@ -615,7 +630,7 @@ const globe = new Globe(document.getElementById('globeViz'))
     document.body.style.cursor = (d && d.kind === 'dream') ? 'pointer' : 'default';
   })
   .width(window.innerWidth)
-  .height(window.innerHeight);
+  .height(document.getElementById('globe-scene').clientHeight);
 
 globe.controls().autoRotate = true;
 globe.controls().autoRotateSpeed = 0.45;
@@ -637,7 +652,7 @@ fetch('https://cdn.jsdelivr.net/gh/vasturiano/globe.gl/example/datasets/ne_110m_
 
 window.addEventListener('resize', () => {
   globe.width(window.innerWidth);
-  globe.height(window.innerHeight);
+  globe.height(document.getElementById('globe-scene').clientHeight);
 });
 
 // ── Кроссфейд глобус → 2D-карта ──
@@ -841,7 +856,7 @@ const glowCanvas = document.getElementById('glow-canvas');
 const glowCtx = glowCanvas.getContext('2d');
 function resizeGlowCanvas() {
   glowCanvas.width = window.innerWidth;
-  glowCanvas.height = window.innerHeight;
+  glowCanvas.height = document.getElementById('globe-scene').clientHeight;
 }
 resizeGlowCanvas();
 window.addEventListener('resize', resizeGlowCanvas);
@@ -858,8 +873,9 @@ copyGlowFrame();
 (function drawStaticStars() {
   const canvas = document.getElementById('stars-static');
   const ctx = canvas.getContext('2d');
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const heroWrapEl = document.getElementById('hero-wrap');
+  const w = heroWrapEl.clientWidth;
+  const h = heroWrapEl.clientHeight;
   canvas.width = w;
   canvas.height = h;
   for (let i = 0; i < 170; i++) {
@@ -987,11 +1003,12 @@ class Meteor {
 function createMeteorLayer(canvasId) {
   const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext('2d');
+  const heroWrapEl = document.getElementById('hero-wrap');
   let meteors = [];
 
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = heroWrapEl.clientWidth;
+    canvas.height = heroWrapEl.clientHeight;
   }
   resize();
   window.addEventListener('resize', resize);
