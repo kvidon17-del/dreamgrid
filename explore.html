@@ -307,7 +307,8 @@
     Dream Grid
   </a>
   <ul class="nav-links">
-    <li><a href="/explore" class="active">Explore Dreams</a></li>
+    <li><a href="/explore" class="active">Explore Grid</a></li>
+    <li><a href="/explore-dreams">Explore Dreams</a></li>
     <li><a href="/how-it-works">How It Works</a></li>
     <li><a href="/pricing">Pricing</a></li>
     <li><a href="/fulfilled">Dreams Fulfilled</a></li>
@@ -348,217 +349,15 @@
     </div>
     <div class="hero-bottom-fade"></div>
     <div id="credit">Earth textures © three-globe (демо-набор)</div>
-    <div class="scroll-hint">
-      <div class="scroll-ring">↓</div>
-      <span>Scroll for list</span>
-    </div>
+    <a href="/explore-dreams" class="scroll-hint" style="text-decoration:none; pointer-events:auto;">
+      <div class="scroll-ring">☰</div>
+      <span>View as list</span>
+    </a>
   </section>
 
   <canvas id="star-layer-fg"></canvas>
 </div>
 
-<!-- FILTERS -->
-<div class="filters-bar">
-  <div class="search-box">
-    <span>🔍</span>
-    <input type="text" id="search-input" placeholder="Search dreams..." oninput="handleSearch()">
-  </div>
-  <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
-  <button class="filter-btn" onclick="setFilter('active', this)">● Active</button>
-  <button class="filter-btn" onclick="setFilter('fulfilled', this)">✓ Fulfilled</button>
-  <select class="sort-select" onchange="setSort(this.value)">
-    <option value="featured">✦ Featured</option>
-    <option value="newest">Newest first</option>
-    <option value="oldest">Oldest first</option>
-    <option value="likes">Most liked</option>
-    <option value="views">Most viewed</option>
-  </select>
-  <span class="results-count" id="results-count"></span>
-</div>
-
-<!-- MAIN -->
-<main>
-  <div class="dreams-grid" id="dreams-grid"></div>
-  <div class="load-more-wrap" id="load-more-wrap" style="display:none;">
-    <button class="btn-load-more" onclick="loadMore()">Load more dreams</button>
-  </div>
-  <div class="cta-banner">
-    <h3>Ready to share your dream? ✦</h3>
-    <p>Join the world's map of dreams. Claim your cell starting from just €3.</p>
-    <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
-  </div>
-</main>
-
-<div class="toast" id="toast"></div>
-
-<!-- ── Фильтры/поиск/карточки мечт — логика не менялась относительно текущего explore.html ── -->
-<script>
-const { createClient } = supabase;
-const sb = createClient(
-  'https://wnbgwonqpjwzdgcngkxi.supabase.co',
-  'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
-);
-
-const PAGE_SIZE = 12;
-let allDreams = [];
-let filteredDreams = [];
-let currentFilter = 'all';
-let currentSort = 'featured';
-let searchQuery = '';
-let displayedCount = PAGE_SIZE;
-
-const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
-const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
-
-async function init() {
-  const { data: { user } } = await sb.auth.getUser();
-  if (user) {
-    document.getElementById('nav-dashboard').style.display = 'inline-flex';
-    document.getElementById('nav-share').style.display = 'none';
-  }
-  await loadDreams();
-  document.getElementById('loading').style.display = 'none';
-}
-
-async function loadDreams() {
-  const { data: dreams, error } = await sb
-    .from('dreams')
-    .select('*, cells(*)')
-    .order('created_at', { ascending: false });
-
-  if (error || !dreams) { renderEmpty(); return; }
-
-  allDreams = dreams;
-
-  document.getElementById('total-dreams').textContent = dreams.length;
-  document.getElementById('total-fulfilled').textContent = dreams.filter(d => d.status === 'fulfilled').length;
-  document.getElementById('total-likes').textContent = dreams.reduce((a,d) => a + (d.likes_count||0), 0);
-
-  applyFilters();
-}
-
-function applyFilters() {
-  let result = [...allDreams];
-
-  if (currentFilter === 'active') result = result.filter(d => d.status === 'active');
-  if (currentFilter === 'fulfilled') result = result.filter(d => d.status === 'fulfilled');
-
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    result = result.filter(d =>
-      d.title?.toLowerCase().includes(q) ||
-      d.description?.toLowerCase().includes(q)
-    );
-  }
-
-  const tierRank = { vip: 3, premium: 2, standard: 1, basic: 0 };
-  if (currentSort === 'featured') {
-    result.sort((a,b) => {
-      const rankDiff = (tierRank[b.cells?.tier] ?? 0) - (tierRank[a.cells?.tier] ?? 0);
-      return rankDiff !== 0 ? rankDiff : new Date(b.created_at) - new Date(a.created_at);
-    });
-  }
-  if (currentSort === 'newest') result.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-  if (currentSort === 'oldest') result.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-  if (currentSort === 'likes') result.sort((a,b) => (b.likes_count||0) - (a.likes_count||0));
-  if (currentSort === 'views') result.sort((a,b) => (b.views_count||0) - (a.views_count||0));
-
-  filteredDreams = result;
-  displayedCount = PAGE_SIZE;
-  renderDreams();
-}
-
-function renderDreams() {
-  const grid = document.getElementById('dreams-grid');
-  const toShow = filteredDreams.slice(0, displayedCount);
-
-  document.getElementById('results-count').textContent = `${filteredDreams.length} dream${filteredDreams.length !== 1 ? 's' : ''}`;
-
-  if (toShow.length === 0) { renderEmpty(); return; }
-
-  grid.innerHTML = toShow.map(dream => {
-    const tier = dream.cells?.tier || 'basic';
-    const emoji = tierEmojis[tier] || '✨';
-    const date = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-
-    const safePhotoUrl = dream.photo_url ? dream.photo_url.replace(/"/g, '%22') : '';
-    const photoHtml = dream.photo_url
-      ? `<div class="card-photo" style="background-image:url(&quot;${safePhotoUrl}&quot;)">
-           <span class="card-tier-badge tier-${tier}">${tierLabels[tier]}</span>
-           <span class="card-status status-${dream.status}">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
-         </div>`
-      : `<div class="card-photo-placeholder">
-           ${emoji}
-           <span class="card-tier-badge tier-${tier}" style="position:absolute;top:12px;left:12px;">${tierLabels[tier]}</span>
-           <span class="card-status status-${dream.status}" style="position:absolute;top:12px;right:12px;">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
-         </div>`;
-
-    return `
-      <a class="dream-card" href="/dream/${dream.id}">
-        ${photoHtml}
-        <div class="card-body">
-          <div class="card-cell">Cell #${dream.cell_id}</div>
-          <div class="card-title">${dream.title}</div>
-          <div class="card-desc">${dream.description || ''}</div>
-          <div class="card-footer">
-            <div class="card-likes">❤️ ${dream.likes_count || 0}</div>
-            <div class="card-date">${date}</div>
-          </div>
-        </div>
-      </a>
-    `;
-  }).join('');
-
-  const loadMoreWrap = document.getElementById('load-more-wrap');
-  loadMoreWrap.style.display = filteredDreams.length > displayedCount ? 'block' : 'none';
-}
-
-function renderEmpty() {
-  document.getElementById('dreams-grid').innerHTML = `
-    <div class="empty-state">
-      <div class="es-icon">🌟</div>
-      <h3>No dreams found</h3>
-      <p>Be the first to share your dream with the world!</p>
-      <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
-    </div>
-  `;
-  document.getElementById('load-more-wrap').style.display = 'none';
-}
-
-function loadMore() {
-  displayedCount += PAGE_SIZE;
-  renderDreams();
-}
-
-function setFilter(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  applyFilters();
-}
-
-function setSort(sort) {
-  currentSort = sort;
-  applyFilters();
-}
-
-let searchTimer;
-function handleSearch() {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    searchQuery = document.getElementById('search-input').value.trim();
-    applyFilters();
-  }, 300);
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast show';
-  setTimeout(() => t.className = 'toast', 3000);
-}
-
-init();
-</script>
 
 <!-- ── Глобус: настоящие мечты, кроссфейд в 2D-карту (та же логика, что в dream-globe-explore-TEST.html) ── -->
 <script type="importmap">
@@ -711,13 +510,22 @@ function refreshPoints() {
   globe.pointsData([...landDustPoints, ...capitalPoints, ...dreamPoints]);
 }
 
-// ── Настоящие мечты из Supabase (используем тот же sb-клиент, что и в блоке карточек выше,
-// но объявляем свой внутри модуля — области видимости разные, конфликта нет) ──
+// ── Настоящие мечты из Supabase ──
 const { createClient } = supabase;
 const sbGlobe = createClient(
   'https://wnbgwonqpjwzdgcngkxi.supabase.co',
   'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
 );
+
+// Мини-статистика в hero-text (dreams shared / fulfilled / total likes)
+async function loadStats() {
+  const { data, error } = await sbGlobe.from('dreams').select('status, likes_count');
+  if (error || !data) return;
+  document.getElementById('total-dreams').textContent = data.length;
+  document.getElementById('total-fulfilled').textContent = data.filter(d => d.status === 'fulfilled').length;
+  document.getElementById('total-likes').textContent = data.reduce((a, d) => a + (d.likes_count || 0), 0);
+}
+loadStats();
 
 const TIER_MAP_RADIUS_PX = { basic: 5, standard: 6, premium: 7, vip: 9 };
 const dreamMarkersLayer = L.layerGroup().addTo(map);
