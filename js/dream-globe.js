@@ -12,6 +12,16 @@
  *   </script>
  *   <div id="dream-globe-canvas"></div>  (не canvas! — обычный div-контейнер)
  *   <script type="module" src="/js/dream-globe.js"></script>
+ *
+ * ── Переход глобус → плоская карта (добавлено) ───────────────────────────
+ * Пока пользователь скроллит секцию .hero, камера глобуса программно
+ * "приближается" (altitude 1.7 → 0.32), из-за чего кривизна сферы визуально
+ * почти исчезает — иллюзия того, что шар превращается в плоскость. Одновременно
+ * canvas глобуса плавно теряет непрозрачность в последней трети скролла — это
+ * страховка на стыке: к моменту, когда hero уходит за верх экрана, глобус уже
+ * не виден, и плоская карта (.map-wrap) снизу подхватывает взгляд без хлопка.
+ * Уважает prefers-reduced-motion — при этой настройке анимация зума/фейда
+ * отключается, глобус остаётся в статичном виде.
  */
 
 import Globe from 'globe.gl';
@@ -40,6 +50,19 @@ const HUBS = [
   [67.0, 24.86, 2],[90.4, 23.8, 2],[114.15, 22.28, 2],
 ];
 
+// ── Настройки перехода глобус → карта ─────────────────────────────────────
+const TRANSITION = {
+  altitudeStart: 1.7,   // исходная точка обзора (как сейчас на проде)
+  altitudeEnd: 0.32,    // "почти вплотную" — сфера визуально выглядит плоской
+  fadeStart: 0.55,      // с какой доли скролла по hero начинает угасать opacity
+  homeLat: 25,
+  homeLng: 20,
+};
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
 function init() {
   const container = document.getElementById('dream-globe-canvas');
   if (!container) return;
@@ -67,11 +90,11 @@ function init() {
 
   globe.controls().autoRotate = true;
   globe.controls().autoRotateSpeed = 0.45;
-  globe.controls().enableZoom = false; // на главной странице зум не нужен — это декоративный фон
+  globe.controls().enableZoom = false; // на главной странице зум мышью не нужен — это декоративный фон
   globe.controls().enablePan = false;
   globe.controls().minDistance = 120;
   globe.controls().maxDistance = 500;
-  globe.pointOfView({ lat: 25, lng: 20, altitude: 1.7 }, 0);
+  globe.pointOfView({ lat: TRANSITION.homeLat, lng: TRANSITION.homeLng, altitude: TRANSITION.altitudeStart }, 0);
 
   // Настоящие границы стран (Natural Earth, открытые данные)
   fetch('https://cdn.jsdelivr.net/gh/vasturiano/globe.gl/example/datasets/ne_110m_admin_0_countries.geojson')
@@ -98,6 +121,58 @@ function init() {
     globe.width(container.clientWidth);
     globe.height(container.clientHeight);
   });
+
+  initScrollTransition(globe, container);
+}
+
+// ── Переход глобус → карта по скроллу ─────────────────────────────────────
+function initScrollTransition(globe, container) {
+  const heroEl = document.querySelector('.hero');
+  if (!heroEl) return;
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return; // оставляем статичный глобус как есть, без анимации по скроллу
+
+  let ticking = false;
+  let lastProgress = -1;
+
+  function computeProgress() {
+    const heroHeight = heroEl.offsetHeight || window.innerHeight;
+    const scrolled = window.scrollY;
+    return Math.min(1, Math.max(0, scrolled / heroHeight));
+  }
+
+  function applyProgress(progress) {
+    const eased = easeInOutCubic(progress);
+    const altitude = TRANSITION.altitudeStart + (TRANSITION.altitudeEnd - TRANSITION.altitudeStart) * eased;
+    globe.pointOfView({ lat: TRANSITION.homeLat, lng: TRANSITION.homeLng, altitude }, 0);
+
+    // Замораживаем авто-вращение, как только начался скролл — иначе оно "борется"
+    // с программным pointOfView и камера дёргается. Возвращаем вращение у самого верха.
+    globe.controls().autoRotate = progress < 0.02;
+
+    // Угасание в последней части скролла — страховка на стыке с плоской картой снизу
+    const fadeProgress = Math.max(0, (progress - TRANSITION.fadeStart) / (1 - TRANSITION.fadeStart));
+    container.style.opacity = String(1 - easeInOutCubic(Math.min(1, fadeProgress)));
+  }
+
+  function onScrollFrame() {
+    ticking = false;
+    const progress = computeProgress();
+    if (Math.abs(progress - lastProgress) < 0.001) return;
+    lastProgress = progress;
+    applyProgress(progress);
+  }
+
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(onScrollFrame);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  onScrollFrame(); // применяем сразу — на случай, если страница загрузилась не с самого верха
 }
 
 // ── Маска суши/воды: тёмный пиксель = суша, светлый = вода ───────────────
