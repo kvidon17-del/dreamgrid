@@ -5,23 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Explore Dreams — Dream Grid</title>
 <meta name="description" content="Browse dreams shared by people all over the world — real hopes, real places, real stories.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dreamgrid.ink/explore">
+<meta property="og:title" content="Explore Dreams — Dream Grid">
+<meta property="og:description" content="Browse dreams shared by people all over the world — real hopes, real places, real stories.">
+<meta property="og:image" content="https://dreamgrid.ink/og-default.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Explore Dreams — Dream Grid">
+<meta name="twitter:image" content="https://dreamgrid.ink/og-default.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!--
-  Explore Dreams: полноэкранный глобус (настоящие мечты, кроссфейд в 2D-карту) вместо
-  старой canvas-карты. Заменяет предыдущую версию explore.html целиком.
-
-  Старая секция .explore-map-wrap / #map-canvas (canvas-точки на плоской проекции) —
-  ПОЛНОСТЬЮ УДАЛЕНА (решение пользователя: "актуальность существующей карты отпадает,
-  её заменит глобус"). Фильтры/поиск/сортировка/карточки мечт — логика не менялась.
-
-  Технические уроки из работы над глобусом — все учтены здесь: не смешивать отдельный
-  three.js с globe.gl, не использовать htmlElementsData, не пересобирать тяжёлые
-  pointsData в цикле, textures — только
-  с CORS-дружественных источников.
--->
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -60,108 +55,38 @@
     font-size: 13px; font-weight: 600; border: none; cursor: pointer;
   }
 
-  /* ── ЕДИНЫЙ ОБЁРТЫВАЮЩИЙ БЛОК: текст + глобус на ОДНОМ общем звёздном фоне ──────
-     Звёзды и метеоры теперь дети .hero-wrap (а не вложены внутрь глобуса) — растянуты
-     на весь блок целиком (текст + глобус), поэтому нет видимой границы между ними. */
-  .hero-wrap {
-    position: relative; overflow: hidden;
-    background: radial-gradient(ellipse at 50% 15%, #171b40 0%, #0b0e26 35%, #050612 70%, #030309 100%);
-  }
-  #stars-static, #star-layer-bg, #star-layer-fg {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none;
-  }
-  #stars-static { z-index: 0; animation: starsDrift 60s ease-in-out infinite alternate; }
-  @keyframes starsDrift {
-    0%   { transform: translate(0px, 0px) scale(1.02); }
-    100% { transform: translate(-4px, 3px) scale(1.02); }
-  }
-  #star-layer-bg { z-index: 0; } /* за глобусом */
-  #star-layer-fg { z-index: 5; } /* перед глобусом и текстом — кометы пролетают поверх всего */
+  /* MAP */
+  .explore-map-wrap { position: relative; height: 320px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); margin: 0 48px 28px; background: #05060f; }
+  #map-canvas { width: 100%; height: 100%; display: block; cursor: default; }
 
-  /* ── ТЕКСТ НАД ГЛОБУСОМ — обычный блок в потоке, свой фон убран (общий фон родителя) ── */
-  .hero-text {
-    position: relative; z-index: 2;
-    padding: 130px 24px 24px;
+  /* HERO */
+  .page-hero {
+    padding: 100px 48px 48px;
+    background: linear-gradient(180deg, rgba(99,60,220,0.1) 0%, transparent 100%);
     text-align: center;
   }
-  .hero-text h1 {
+  .page-hero h1 {
     font-family: 'Sora',sans-serif;
     font-size: clamp(32px,5vw,56px);
     font-weight: 900; color: #fff;
-    letter-spacing: -1.5px; margin-bottom: 12px;
+    letter-spacing: -1px; margin-bottom: 12px;
   }
-  .hero-text h1 span {
+  .page-hero h1 span {
     background: linear-gradient(90deg,#a78bfa,#f472b6);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   }
-  .hero-text p { font-size: 16px; color: rgba(255,255,255,0.6); margin-bottom: 28px; }
-  .stats-mini { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
-  .stat-mini { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.65); }
+  .page-hero p { font-size: 16px; color: var(--muted); margin-bottom: 32px; }
+
+  /* STATS BAR */
+  .stats-mini {
+    display: flex; gap: 24px; justify-content: center;
+    flex-wrap: wrap; margin-bottom: 0;
+  }
+  .stat-mini {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted);
+  }
   .stat-mini strong { color: #fff; font-weight: 700; }
-
-  /* ── ГЕРОЙ-ГЛОБУС — полная сфера целиком, БЕЗ обрезки. Пользователь видит только верхнюю
-     часть при загрузке ЕСТЕСТВЕННО — просто потому что окно браузера ниже, чем текст+глобус
-     вместе. При скролле страница просто едет вниз, открывая остальную часть сферы. ──── */
-  .hero-globe { position: relative; height: 100vh; }
-  #stage { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-  #globe-scene {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    transition: opacity 600ms ease;
-  }
-  #globe-scene.faded { opacity: 0; pointer-events: none; }
-
-  #leafletMap {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    z-index: 4; opacity: 0; pointer-events: none;
-    transition: opacity 600ms ease;
-  }
-  #leafletMap.active { opacity: 1; pointer-events: auto; }
-
-  #globeViz { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
-  #atmo-glow {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none; z-index: 2;
-    background: radial-gradient(circle at 70% 30%,
-      rgba(200, 170, 255, 0.55) 0%,
-      rgba(159, 122, 246, 0.28) 20%,
-      rgba(124, 92, 246, 0.0) 45%);
-    filter: blur(28px);
-    mix-blend-mode: screen;
-    opacity: 0.6;
-  }
-  #glow-canvas {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none;
-    filter: blur(14px) saturate(1.5) brightness(1.35);
-    opacity: 0.4;
-    mix-blend-mode: screen;
-    z-index: 3;
-  }
-  /* Мягкий переход внизу глобуса в остальную страницу — без резкой границы */
-  .hero-bottom-fade {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 160px;
-    background: linear-gradient(to bottom, transparent, var(--bg));
-    pointer-events: none; z-index: 6;
-  }
-  #credit {
-    position: absolute; right: 16px; bottom: 14px; color: rgba(255,255,255,0.35);
-    font: 11px system-ui, sans-serif; pointer-events: none; text-align: right; z-index: 7;
-  }
-
-  .scroll-hint {
-    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
-    z-index: 7; pointer-events: none;
-  }
-  .scroll-ring {
-    width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25);
-    display: flex; align-items: center; justify-content: center; font-size: 13px;
-    animation: bob 2.2s ease-in-out infinite;
-  }
-  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
 
   /* FILTERS */
   .filters-bar {
@@ -205,8 +130,15 @@
 
   /* MAIN */
   main { padding: 32px 48px 80px; }
-  .dreams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 
+  /* GRID */
+  .dreams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  /* DREAM CARD */
   .dream-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-lg); overflow: hidden;
@@ -214,7 +146,11 @@
     display: flex; flex-direction: column;
   }
   .dream-card:hover { border-color: var(--border-hi); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(99,60,220,0.2); }
-  .card-photo { height: 180px; background-size: cover; background-position: center; position: relative; flex-shrink: 0; }
+
+  .card-photo {
+    height: 180px; background-size: cover; background-position: center;
+    position: relative; flex-shrink: 0;
+  }
   .card-photo-placeholder {
     height: 180px; flex-shrink: 0; position: relative;
     display: flex; align-items: center; justify-content: center;
@@ -230,9 +166,14 @@
   .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
   .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
   .tier-vip { background: rgba(217,119,6,0.3); border: 1px solid rgba(217,119,6,0.5); color: #fcd34d; }
-  .card-status { position: absolute; top: 12px; right: 12px; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+
+  .card-status {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+  }
   .status-active { background: rgba(99,60,220,0.3); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
   .status-fulfilled { background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); color: #34d399; }
+
   .card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
   .card-cell { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
   .card-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 8px; line-height: 1.4; flex: 1; }
@@ -241,11 +182,16 @@
   .card-likes { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
   .card-date { font-size: 12px; color: var(--muted); }
 
-  .empty-state { text-align: center; padding: 80px 24px; grid-column: 1 / -1; }
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center; padding: 80px 24px;
+    grid-column: 1 / -1;
+  }
   .empty-state .es-icon { font-size: 64px; margin-bottom: 16px; }
   .empty-state h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 8px; }
   .empty-state p { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
 
+  /* LOADING */
   #loading {
     position: fixed; inset: 0; background: var(--bg);
     display: flex; align-items: center; justify-content: center;
@@ -255,6 +201,7 @@
   .loading-spinner { width: 36px; height: 36px; border: 3px solid rgba(167,139,250,0.2); border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to{transform:rotate(360deg)} }
 
+  /* LOAD MORE */
   .load-more-wrap { text-align: center; margin-top: 40px; }
   .btn-load-more {
     padding: 14px 36px; border-radius: var(--radius);
@@ -264,6 +211,7 @@
   }
   .btn-load-more:hover { background: rgba(255,255,255,0.08); border-color: rgba(167,139,250,0.4); }
 
+  /* CTA BANNER */
   .cta-banner {
     background: linear-gradient(135deg, rgba(99,60,220,0.2), rgba(168,85,247,0.12));
     border: 1px solid rgba(167,139,250,0.3);
@@ -281,19 +229,29 @@
   }
   .btn-cta-main:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(99,60,220,0.5); }
 
+  /* TOAST */
   .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1f3a; border: 1px solid rgba(167,139,250,0.3); border-radius: var(--radius); padding: 14px 20px; font-size: 14px; color: #fff; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
   .toast.show { transform: translateY(0); opacity: 1; }
 
   @media (max-width: 768px) {
     nav { padding: 0 20px; }
     .nav-links { display: none; }
+    .explore-map-wrap { margin: 0 20px 24px; height: 220px; }
+    .page-hero { padding: 88px 20px 32px; }
     .filters-bar { padding: 16px 20px; }
     main { padding: 24px 20px 60px; }
     .dreams-grid { grid-template-columns: 1fr; }
   }
 </style>
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
+
+<div id="loading">
+  <div class="loading-logo">✦ Dream Grid</div>
+  <div class="loading-spinner"></div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -302,8 +260,7 @@
     Dream Grid
   </a>
   <ul class="nav-links">
-    <li><a href="/explore" class="active">Explore Grid</a></li>
-    <li><a href="/explore-dreams">Explore Dreams</a></li>
+    <li><a href="/explore" class="active">Explore Dreams</a></li>
     <li><a href="/how-it-works">How It Works</a></li>
     <li><a href="/pricing">Pricing</a></li>
     <li><a href="/fulfilled">Dreams Fulfilled</a></li>
@@ -316,530 +273,360 @@
   </div>
 </nav>
 
-<!-- ЕДИНЫЙ БЛОК: текст + глобус на общем звёздном фоне (без видимых границ между ними) -->
-<div class="hero-wrap" id="hero-wrap">
-  <canvas id="stars-static"></canvas>
-  <canvas id="star-layer-bg"></canvas>
-
-  <!-- ТЕКСТ НАД ГЛОБУСОМ -->
-  <div class="hero-text">
-    <h1>Explore <span>Dreams</span> 🌍</h1>
-    <p>Discover what people around the world are dreaming of</p>
-    <div class="stats-mini">
-      <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
-      <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
-      <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
-    </div>
+<!-- HERO -->
+<div class="page-hero">
+  <h1>Explore <span>Dreams</span> 🌍</h1>
+  <p>Discover what people around the world are dreaming of</p>
+  <div class="stats-mini">
+    <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
+    <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
+    <div class="stat-mini">❤️ <strong id="total-likes">—</strong> total likes</div>
   </div>
-
-  <!-- ГЕРОЙ-ГЛОБУС (заменяет старую .explore-map-wrap) — видна только верхняя половина -->
-  <section class="hero-globe">
-    <div id="stage">
-      <div id="globe-scene">
-        <div id="globeViz"></div>
-        <div id="atmo-glow"></div>
-        <canvas id="glow-canvas"></canvas>
-      </div>
-      <div id="leafletMap"></div>
-    </div>
-    <div class="hero-bottom-fade"></div>
-    <div id="credit">Earth textures © three-globe (демо-набор)</div>
-    <a href="/explore-dreams" class="scroll-hint" style="text-decoration:none; pointer-events:auto;">
-      <div class="scroll-ring">☰</div>
-      <span>View as list</span>
-    </a>
-  </section>
-
-  <canvas id="star-layer-fg"></canvas>
 </div>
 
+<!-- MAP -->
+<div class="explore-map-wrap">
+  <canvas id="map-canvas"></canvas>
+</div>
 
-<!-- ── Глобус: настоящие мечты, кроссфейд в 2D-карту (та же логика, что в dream-globe-explore-TEST.html) ── -->
-<script type="importmap">
-{
-  "imports": {
-    "globe.gl": "https://cdn.jsdelivr.net/npm/globe.gl/+esm"
-  }
-}
-</script>
+<!-- FILTERS -->
+<div class="filters-bar">
+  <div class="search-box">
+    <span>🔍</span>
+    <input type="text" id="search-input" placeholder="Search dreams..." oninput="handleSearch()">
+  </div>
+  <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('active', this)">● Active</button>
+  <button class="filter-btn" onclick="setFilter('fulfilled', this)">✓ Fulfilled</button>
+  <select class="sort-select" onchange="setSort(this.value)">
+    <option value="featured">✦ Featured</option>
+    <option value="newest">Newest first</option>
+    <option value="oldest">Oldest first</option>
+    <option value="likes">Most liked</option>
+    <option value="views">Most viewed</option>
+  </select>
+  <span class="results-count" id="results-count"></span>
+</div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- MAIN -->
+<main>
+  <div class="dreams-grid" id="dreams-grid"></div>
+  <div class="load-more-wrap" id="load-more-wrap" style="display:none;">
+    <button class="btn-load-more" onclick="loadMore()">Load more dreams</button>
+  </div>
+  <div class="cta-banner">
+    <h3>Ready to share your dream? ✦</h3>
+    <p>Join the world's map of dreams. Claim your cell starting from just €3.</p>
+    <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
+  </div>
+</main>
 
-<script type="module">
-import Globe from 'globe.gl';
+<div class="toast" id="toast"></div>
 
-const PALETTE = {
-  tierBasic: '#a78bfa',
-  tierStandard: '#e879f9',
-  tierPremium: '#f472b6',
-  tierVip: '#fbbf24',
-  landDustBase: '#ffb300',
-  landDustBright: '#fff3c4',
-  capital: '#aef9ff',
-  atmosphere: '#7c5cf6',
-  border: 'rgba(196, 165, 253, 0.6)',
-};
-const TIER_COLOR = { basic: PALETTE.tierBasic, standard: PALETTE.tierStandard, premium: PALETTE.tierPremium, vip: PALETTE.tierVip };
-const TIER_RADIUS = { basic: 0.30, standard: 0.42, premium: 0.52, vip: 0.66 };
-let dreamCountScale = 3;
-
-const globe = new Globe(document.getElementById('globeViz'))
-  .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
-  .backgroundColor('rgba(0,0,0,0)')
-  .showAtmosphere(true)
-  .atmosphereColor('#b660f5')
-  .atmosphereAltitude(0.19)
-  .pointsData([])
-  .pointLat('lat')
-  .pointLng('lng')
-  .pointColor(d => {
-    if (d.kind === 'land') return d.bright ? PALETTE.landDustBright : PALETTE.landDustBase;
-    if (d.kind === 'capital') return PALETTE.capital;
-    if (d.kind === 'dream') return TIER_COLOR[d.tier] || TIER_COLOR.basic;
-    return PALETTE.tierBasic;
-  })
-  .pointAltitude(d => {
-    if (d.kind === 'land') return 0.0005;
-    if (d.kind === 'capital') return 0.014;
-    if (d.kind === 'dream') return 0.018;
-    return 0.008;
-  })
-  .pointRadius(d => {
-    if (d.kind === 'land') return d.bright ? 0.075 : 0.04;
-    if (d.kind === 'capital') return 0.68;
-    if (d.kind === 'dream') return (TIER_RADIUS[d.tier] || TIER_RADIUS.basic) * dreamCountScale;
-    return 0.3;
-  })
-  .pointResolution(d => d.kind === 'land' ? 3 : 12)
-  .pointsMerge(true)
-  .pointLabel(d => d.kind === 'dream' ? (d.title || 'Мечта') : '')
-  .onPointClick(d => {
-    if (d.kind === 'dream' && d.dreamId) window.open(`/dream/${d.dreamId}`, '_blank');
-  })
-  .onPointHover(d => {
-    document.body.style.cursor = (d && d.kind === 'dream') ? 'pointer' : 'default';
-  })
-  .width(window.innerWidth)
-  .height(document.getElementById('globe-scene').clientHeight);
-
-globe.controls().autoRotate = true;
-globe.controls().autoRotateSpeed = 0.45;
-globe.controls().enableZoom = true;
-globe.controls().minDistance = 120;
-globe.controls().maxDistance = 500;
-globe.pointOfView({ lat: 25, lng: 20, altitude: 1.7 }, 0);
-
-fetch('https://cdn.jsdelivr.net/gh/vasturiano/globe.gl/example/datasets/ne_110m_admin_0_countries.geojson')
-  .then(res => res.json())
-  .then(countries => {
-    globe
-      .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ'))
-      .polygonCapColor(() => 'rgba(0,0,0,0)')
-      .polygonSideColor(() => 'rgba(0,0,0,0)')
-      .polygonStrokeColor(() => PALETTE.border)
-      .polygonAltitude(0.0015);
-  });
-
-window.addEventListener('resize', () => {
-  globe.width(window.innerWidth);
-  globe.height(document.getElementById('globe-scene').clientHeight);
-});
-
-// ── Кроссфейд глобус → 2D-карта ──
-const CROSSFADE = { altThreshold: 0.40, enterZoom: 4, exitZoom: 3 };
-
-const sceneWrapper = document.getElementById('globe-scene');
-const leafletDiv = document.getElementById('leafletMap');
-const map = L.map(leafletDiv, {
-  zoomControl: true,
-  attributionControl: false,
-  dragging: true,
-  scrollWheelZoom: true,
-});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-  subdomains: 'abcd',
-  maxZoom: 19,
-}).addTo(map);
-map.setView([25, 20], CROSSFADE.enterZoom);
-
-let sceneMode = 'globe';
-
-function crossfadeToMap(lat, lng) {
-  sceneMode = 'map';
-  globe.controls().enabled = false;
-  sceneWrapper.classList.add('faded');
-  leafletDiv.classList.add('active');
-  map.setView([lat, lng], CROSSFADE.enterZoom, { animate: false });
-}
-
-function crossfadeToGlobe(lat, lng) {
-  sceneMode = 'globe';
-  sceneWrapper.classList.remove('faded');
-  leafletDiv.classList.remove('active');
-  globe.controls().enabled = true;
-  globe.pointOfView({ lat, lng, altitude: CROSSFADE.altThreshold * 1.15 }, 0);
-}
-
-map.on('zoomend', () => {
-  if (sceneMode === 'map' && map.getZoom() <= CROSSFADE.exitZoom) {
-    const c = map.getCenter();
-    crossfadeToGlobe(c.lat, c.lng);
-  }
-});
-
-function pollGlobeZoom() {
-  requestAnimationFrame(pollGlobeZoom);
-  if (sceneMode !== 'globe') return;
-  const pov = globe.pointOfView();
-  if (pov.altitude <= CROSSFADE.altThreshold) {
-    crossfadeToMap(pov.lat, pov.lng);
-  }
-}
-pollGlobeZoom();
-
-// ── Общее состояние всех асинхронно подгружаемых слоёв точек ──
-let landDustPoints = [];
-let capitalPoints = [];
-let dreamPoints = [];
-function refreshPoints() {
-  globe.pointsData([...landDustPoints, ...capitalPoints, ...dreamPoints]);
-}
-
-// ── Настоящие мечты из Supabase ──
+<script>
 const { createClient } = supabase;
-const sbGlobe = createClient(
+const sb = createClient(
   'https://wnbgwonqpjwzdgcngkxi.supabase.co',
   'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
 );
 
-// Мини-статистика в hero-text (dreams shared / fulfilled / total likes)
-async function loadStats() {
-  const { data, error } = await sbGlobe.from('dreams').select('status, likes_count');
-  if (error || !data) return;
-  document.getElementById('total-dreams').textContent = data.length;
-  document.getElementById('total-fulfilled').textContent = data.filter(d => d.status === 'fulfilled').length;
-  document.getElementById('total-likes').textContent = data.reduce((a, d) => a + (d.likes_count || 0), 0);
-}
-loadStats();
+const PAGE_SIZE = 12;
+let allDreams = [];
+let filteredDreams = [];
+let currentFilter = 'all';
+let currentSort = 'featured';
+let searchQuery = '';
+let displayedCount = PAGE_SIZE;
 
-const TIER_MAP_RADIUS_PX = { basic: 5, standard: 6, premium: 7, vip: 9 };
-const dreamMarkersLayer = L.layerGroup().addTo(map);
+const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
 
-async function loadRealDreams() {
-  const { data, error } = await sbGlobe.from('cells')
-    .select('lat,lng,tier,dreams(id,title)')
-    .eq('status', 'active')
-    .not('lat', 'is', null)
-    .limit(3000);
-  if (error) { console.error('Не удалось загрузить мечты:', error.message); return; }
-  dreamPoints = (data || [])
-    .map(cell => {
-      const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
-      if (!dream) return null;
-      return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title };
-    })
-    .filter(Boolean);
-
-  const n = Math.max(dreamPoints.length, 1);
-  dreamCountScale = Math.max(1, Math.min(3, 6 / Math.sqrt(n)));
-
-  refreshPoints();
-
-  dreamMarkersLayer.clearLayers();
-  for (const d of dreamPoints) {
-    const marker = L.circleMarker([d.lat, d.lng], {
-      radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
-      color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-      fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-      fillOpacity: 0.9,
-      weight: 2,
-      opacity: 1,
-    });
-    marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
-    marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
-    marker.addTo(dreamMarkersLayer);
-  }
-}
-loadRealDreams();
-
-// ── Золотая цифровая "пыль" по маске суши/воды ──
-function loadLandMask(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      resolve({ data, width: canvas.width, height: canvas.height });
-    };
-    img.onerror = (e) => reject(new Error('image failed to load: ' + url));
-    img.src = url;
-  });
-}
-function isLandFromMask(mask, lon, lat) {
-  const x = Math.floor(((lon + 180) / 360) * mask.width) % mask.width;
-  const y = Math.min(mask.height - 1, Math.max(0, Math.floor(((90 - lat) / 180) * mask.height)));
-  const idx = (y * mask.width + x) * 4;
-  return mask.data[idx] < 128;
-}
-function generateLandDust(mask, count) {
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const pts = [];
-  let tries = 0;
-  const maxTries = count * 5;
-  while (pts.length < count && tries < maxTries) {
-    const y = 1 - (tries / (maxTries - 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * tries;
-    const x = Math.cos(theta) * r, z = Math.sin(theta) * r;
-    tries++;
-    const lat = Math.asin(y) * (180 / Math.PI);
-    const lon = Math.atan2(z, x) * (180 / Math.PI);
-    if (!isLandFromMask(mask, lon, lat)) continue;
-    pts.push({ lat, lng: lon, kind: 'land', bright: Math.random() < 0.18 });
-  }
-  return pts;
-}
-loadLandMask('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-water.png')
-  .then(mask => {
-    landDustPoints = generateLandDust(mask, 16000);
-    refreshPoints();
-  })
-  .catch(err => console.error('Не удалось загрузить маску суши:', err.message || err));
-
-// ── Столицы всех стран — открытый датасет, независимый слой ──
-const CAPITALS_CSV_URL = 'https://gist.githubusercontent.com/ofou/df09a6834a8421b4f376c875194915c9/raw/355eb56e164ddc3cd1a9467c524422cb674e71a9/country-capital-lat-long-population.csv';
-
-function parseCapitalsCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-  const rows = lines.slice(1);
-  const out = [];
-  for (const line of rows) {
-    const cells = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQuotes = !inQuotes; continue; }
-      if (ch === ',' && !inQuotes) { cells.push(cur); cur = ''; continue; }
-      cur += ch;
-    }
-    cells.push(cur);
-    if (cells.length < 4) continue;
-    const [country, capital, latStr, lngStr] = cells;
-    const lat = parseFloat(latStr);
-    const lng = parseFloat(lngStr);
-    if (!isFinite(lat) || !isFinite(lng)) continue;
-    out.push({ lat, lng, kind: 'capital', name: capital.trim(), country: country.trim() });
-  }
-  return out;
-}
-
-fetch(CAPITALS_CSV_URL)
-  .then(res => {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.text();
-  })
-  .then(text => {
-    capitalPoints = parseCapitalsCSV(text);
-    refreshPoints();
-  })
-  .catch(err => console.error('Не удалось загрузить датасет столиц:', err.message || err));
-
-// ── CSS-свечение ──
-const glowCanvas = document.getElementById('glow-canvas');
-const glowCtx = glowCanvas.getContext('2d');
-function resizeGlowCanvas() {
-  glowCanvas.width = window.innerWidth;
-  glowCanvas.height = document.getElementById('globe-scene').clientHeight;
-}
-resizeGlowCanvas();
-window.addEventListener('resize', resizeGlowCanvas);
-function copyGlowFrame() {
-  requestAnimationFrame(copyGlowFrame);
-  const sourceCanvas = document.querySelector('#globeViz canvas');
-  if (!sourceCanvas) return;
-  glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
-  glowCtx.drawImage(sourceCanvas, 0, 0, glowCanvas.width, glowCanvas.height);
-}
-copyGlowFrame();
-
-// ── Статичный звёздный фон ──
-(function drawStaticStars() {
-  const canvas = document.getElementById('stars-static');
+// ── Map (real dreams, visible to everyone — Explore is already fully open) ──
+(function() {
+  const canvas = document.getElementById('map-canvas');
   const ctx = canvas.getContext('2d');
-  const heroWrapEl = document.getElementById('hero-wrap');
-  const w = heroWrapEl.clientWidth;
-  const h = heroWrapEl.clientHeight;
-  canvas.width = w;
-  canvas.height = h;
-  for (let i = 0; i < 170; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const r = 0.4 + Math.random() * 0.5;
-    ctx.fillStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.25})`;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+  let W, H;
+  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
+  resize(); window.addEventListener('resize', resize);
+  const dreamColors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f59e0b','#10b981','#3b82f6','#06b6d4'];
+  const TIER_DOT_SIZE = { basic: 2, standard: 2.8, premium: 3.6, vip: 5 };
+  const dots = [];
+
+  function extractPolygons(geo) {
+    const feats = geo.type === 'FeatureCollection' ? geo.features : [geo];
+    const polygons = [];
+    for (const f of feats) {
+      const g = f.geometry || f;
+      if (!g) continue;
+      if (g.type === 'MultiPolygon') polygons.push(...g.coordinates);
+      else if (g.type === 'Polygon') polygons.push(g.coordinates);
+    }
+    return polygons;
   }
-  for (let i = 0; i < 70; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const r = 0.8 + Math.random() * 1.0;
-    ctx.fillStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.4})`;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+
+  function generateDots(landPath2D, hitCtx, targetCount) {
+    let attempts = 0;
+    while (dots.length < targetCount && attempts < targetCount * 60) {
+      attempts++;
+      const x = Math.random(), y = Math.random();
+      if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
+      dots.push({ x, y, size: Math.random() * 1.0 + 0.2, isDream: false, phase: Math.random() * Math.PI * 2, speed: 0.025 + Math.random() * 0.04 });
+    }
   }
+
+  async function loadMapDots() {
+    const hitCtx = document.createElement('canvas').getContext('2d');
+    let landPath2D;
+    try {
+      const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
+      const topology = await res.json();
+      const geo = topojson.feature(topology, topology.objects.land);
+      const polygons = extractPolygons(geo);
+      landPath2D = new Path2D();
+      for (const polygon of polygons) {
+        for (const ring of polygon) {
+          let prevX = null;
+          ring.forEach(([lon, lat], i) => {
+            const x = (lon + 180) / 360, y = (90 - lat) / 180;
+            if (i === 0 || prevX === null || Math.abs(x - prevX) > 0.5) landPath2D.moveTo(x, y);
+            else landPath2D.lineTo(x, y);
+            prevX = x;
+          });
+          landPath2D.closePath();
+        }
+      }
+    } catch (e) {
+      console.error('World map data failed to load, using fallback shapes', e);
+      const fallback = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
+      landPath2D = new Path2D();
+      for (const [cx,cy,rx,ry] of fallback) landPath2D.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+    }
+    generateDots(landPath2D, hitCtx, 700);
+    loadRealDreams();
+  }
+  loadMapDots();
+
+  async function loadRealDreams() {
+    const { data, error } = await sb.from('cells')
+      .select('lat,lng,tier,dreams(id,title)')
+      .eq('status', 'active')
+      .not('lat', 'is', null)
+      .limit(3000);
+    if (error || !data) return;
+    for (const cell of data) {
+      const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
+      if (!dream) continue;
+      dots.push({
+        x: (cell.lng + 180) / 360,
+        y: (90 - cell.lat) / 180,
+        size: TIER_DOT_SIZE[cell.tier] || 2,
+        baseColor: dreamColors[Math.floor(Math.random() * dreamColors.length)],
+        isDream: true,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.025 + Math.random() * 0.04,
+        dreamId: dream.id,
+      });
+    }
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left, clickY = e.clientY - rect.top;
+    let closest = null, closestDist = 14;
+    for (const d of dots) {
+      if (!d.dreamId) continue;
+      const px = d.x * W, py = d.y * H;
+      const dist = Math.hypot(px - clickX, py - clickY);
+      if (dist < closestDist) { closestDist = dist; closest = d; }
+    }
+    if (closest) window.open(`/dream/${closest.dreamId}`, '_blank');
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hovering = false;
+    for (const d of dots) {
+      if (!d.dreamId) continue;
+      if (Math.hypot(d.x * W - mx, d.y * H - my) < 14) { hovering = true; break; }
+    }
+    canvas.style.cursor = hovering ? 'pointer' : 'default';
+  });
+
+  let t = 0;
+  function draw() {
+    t += 0.016; ctx.clearRect(0, 0, W, H);
+    for (const d of dots) {
+      const px = d.x * W, py = d.y * H;
+      if (d.isDream) {
+        const pulse = 0.55 + Math.sin(t * d.speed * 60 + d.phase) * 0.45;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, d.size * 4);
+        g.addColorStop(0, d.baseColor + 'bb'); g.addColorStop(1, d.baseColor + '00');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, d.size * 4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = pulse; ctx.fillStyle = d.baseColor; ctx.beginPath(); ctx.arc(px, py, d.size, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      } else {
+        ctx.fillStyle = `rgba(120,140,220,${0.12 + Math.random() * 0.08})`; ctx.beginPath(); ctx.arc(px, py, d.size, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
 })();
 
-// ── Реалистичные метеоры ──
-function easeInOutQuad(t) {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-}
-function brightnessEnvelope(t) {
-  if (t < 0.12) return easeInOutQuad(t / 0.12);
-  if (t > 0.65) return 1 - easeInOutQuad((t - 0.65) / 0.35);
-  return 1;
-}
-
-class Meteor {
-  constructor(width, height, { brightnessScale = 1, headRadius = 3.2 } = {}) {
-    this.startX = Math.random() * width * 1.1 - width * 0.05;
-    this.startY = -20 - Math.random() * 40;
-    const travelX = (Math.random() * 2 - 1) * width * 0.35;
-    const travelY = height * (0.75 + Math.random() * 0.4);
-    this.endX = this.startX + travelX;
-    this.endY = this.startY + travelY;
-
-    const midX = (this.startX + this.endX) / 2;
-    const midY = (this.startY + this.endY) / 2;
-    const dx = this.endX - this.startX;
-    const dy = this.endY - this.startY;
-    const len = Math.hypot(dx, dy) || 1;
-    const perpX = -dy / len;
-    const perpY = dx / len;
-    const curveAmount = (Math.random() * 2 - 1) * len * 0.06;
-    this.ctrlX = midX + perpX * curveAmount;
-    this.ctrlY = midY + perpY * curveAmount;
-
-    this.duration = 800 + Math.random() * 1200;
-    this.elapsed = 0;
-    this.trail = [];
-    this.maxTrailPoints = 24;
-    this.headRadius = headRadius;
-    this.brightnessScale = brightnessScale;
-    this.tint = 'rgba(255,195,60,';
-    this.flickerSeed = Math.random() * 1000;
-    this.dead = false;
+async function init() {
+  // Check user
+  const { data: { user } } = await sb.auth.getUser();
+  if (user) {
+    document.getElementById('nav-dashboard').style.display = 'inline-flex';
+    document.getElementById('nav-share').style.display = 'none';
   }
 
-  posAt(t) {
-    const it = 1 - t;
-    const x = it * it * this.startX + 2 * it * t * this.ctrlX + t * t * this.endX;
-    const y = it * it * this.startY + 2 * it * t * this.ctrlY + t * t * this.endY;
-    return { x, y };
-  }
-
-  update(dt, now) {
-    this.elapsed += dt;
-    const tLinear = Math.min(1, this.elapsed / this.duration);
-    const t = easeInOutQuad(tLinear);
-    const pos = this.posAt(t);
-
-    this.trail.push({ x: pos.x, y: pos.y, t: tLinear });
-    if (this.trail.length > this.maxTrailPoints) this.trail.shift();
-
-    if (tLinear >= 1) this.dead = true;
-    this.currentBrightness = brightnessEnvelope(tLinear) * this.brightnessScale;
-    this.currentBrightness *= 1 + Math.sin(now * 0.03 + this.flickerSeed) * 0.08;
-  }
-
-  draw(ctx) {
-    if (this.trail.length < 2) return;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-
-    for (let i = 1; i < this.trail.length; i++) {
-      const p0 = this.trail[i - 1];
-      const p1 = this.trail[i];
-      const age = i / this.trail.length;
-      const alpha = age * age * this.currentBrightness * 0.5;
-      const width = Math.max(0.4, this.headRadius * age * 0.6);
-      ctx.strokeStyle = this.tint + alpha + ')';
-      ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.lineTo(p1.x, p1.y);
-      ctx.stroke();
-    }
-
-    const head = this.trail[this.trail.length - 1];
-    const glowR = this.headRadius * 5;
-    const gradient = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, glowR);
-    gradient.addColorStop(0, `rgba(255,244,210,${0.95 * this.currentBrightness})`);
-    gradient.addColorStop(0.25, this.tint + (0.6 * this.currentBrightness) + ')');
-    gradient.addColorStop(1, this.tint + '0)');
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, glowR, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = `rgba(255,244,210,${Math.min(1, this.currentBrightness)})`;
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, this.headRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-  }
+  await loadDreams();
+  document.getElementById('loading').style.display = 'none';
 }
 
-function createMeteorLayer(canvasId) {
-  const canvas = document.getElementById(canvasId);
-  const ctx = canvas.getContext('2d');
-  const heroWrapEl = document.getElementById('hero-wrap');
-  let meteors = [];
+async function loadDreams() {
+  const { data: dreams, error } = await sb
+    .from('dreams')
+    .select('*, cells(*)')
+    .order('created_at', { ascending: false });
 
-  function resize() {
-    canvas.width = heroWrapEl.clientWidth;
-    canvas.height = heroWrapEl.clientHeight;
+  if (error || !dreams) { renderEmpty(); return; }
+
+  allDreams = dreams;
+
+  // Update stats
+  document.getElementById('total-dreams').textContent = dreams.length;
+  document.getElementById('total-fulfilled').textContent = dreams.filter(d => d.status === 'fulfilled').length;
+  document.getElementById('total-likes').textContent = dreams.reduce((a,d) => a + (d.likes_count||0), 0);
+
+  applyFilters();
+}
+
+function applyFilters() {
+  let result = [...allDreams];
+
+  // Filter by status
+  if (currentFilter === 'active') result = result.filter(d => d.status === 'active');
+  if (currentFilter === 'fulfilled') result = result.filter(d => d.status === 'fulfilled');
+
+  // Search
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(d =>
+      d.title?.toLowerCase().includes(q) ||
+      d.description?.toLowerCase().includes(q)
+    );
   }
-  resize();
-  window.addEventListener('resize', resize);
 
-  let lastTime = performance.now();
-  function tick(now) {
-    requestAnimationFrame(tick);
-    const dt = now - lastTime;
-    lastTime = now;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    meteors.forEach(m => {
-      m.update(dt, now);
-      m.draw(ctx);
+  // Sort
+  const tierRank = { vip: 3, premium: 2, standard: 1, basic: 0 };
+  if (currentSort === 'featured') {
+    result.sort((a,b) => {
+      const rankDiff = (tierRank[b.cells?.tier] ?? 0) - (tierRank[a.cells?.tier] ?? 0);
+      return rankDiff !== 0 ? rankDiff : new Date(b.created_at) - new Date(a.created_at);
     });
-    meteors = meteors.filter(m => !m.dead);
   }
-  requestAnimationFrame(tick);
+  if (currentSort === 'newest') result.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  if (currentSort === 'oldest') result.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  if (currentSort === 'likes') result.sort((a,b) => (b.likes_count||0) - (a.likes_count||0));
+  if (currentSort === 'views') result.sort((a,b) => (b.views_count||0) - (a.views_count||0));
 
-  return {
-    spawn(opts) {
-      meteors.push(new Meteor(canvas.width, canvas.height, opts));
-    },
-  };
+  filteredDreams = result;
+  displayedCount = PAGE_SIZE;
+  renderDreams();
 }
 
-const bgMeteors = createMeteorLayer('star-layer-bg');
-const fgMeteors = createMeteorLayer('star-layer-fg');
+function renderDreams() {
+  const grid = document.getElementById('dreams-grid');
+  const toShow = filteredDreams.slice(0, displayedCount);
 
-setInterval(() => { bgMeteors.spawn({ brightnessScale: 0.5, headRadius: 2.2 }); }, 4500);
-setInterval(() => { fgMeteors.spawn({ brightnessScale: 1, headRadius: 3.4 }); }, 10000);
+  document.getElementById('results-count').textContent = `${filteredDreams.length} dream${filteredDreams.length !== 1 ? 's' : ''}`;
+
+  if (toShow.length === 0) { renderEmpty(); return; }
+
+  grid.innerHTML = toShow.map(dream => {
+    const tier = dream.cells?.tier || 'basic';
+    const emoji = tierEmojis[tier] || '✨';
+    const date = new Date(dream.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const safePhotoUrl = dream.photo_url ? dream.photo_url.replace(/"/g, '%22') : '';
+    const photoHtml = dream.photo_url
+      ? `<div class="card-photo" style="background-image:url(&quot;${safePhotoUrl}&quot;)">
+           <span class="card-tier-badge tier-${tier}">${tierLabels[tier]}</span>
+           <span class="card-status status-${dream.status}">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
+         </div>`
+      : `<div class="card-photo-placeholder">
+           ${emoji}
+           <span class="card-tier-badge tier-${tier}" style="position:absolute;top:12px;left:12px;">${tierLabels[tier]}</span>
+           <span class="card-status status-${dream.status}" style="position:absolute;top:12px;right:12px;">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
+         </div>`;
+
+    return `
+      <a class="dream-card" href="/dream/${dream.id}">
+        ${photoHtml}
+        <div class="card-body">
+          <div class="card-cell">Cell #${dream.cell_id}</div>
+          <div class="card-title">${dream.title}</div>
+          <div class="card-desc">${dream.description || ''}</div>
+          <div class="card-footer">
+            <div class="card-likes">❤️ ${dream.likes_count || 0}</div>
+            <div class="card-date">${date}</div>
+          </div>
+        </div>
+      </a>
+    `;
+  }).join('');
+
+  // Load more button
+  const loadMoreWrap = document.getElementById('load-more-wrap');
+  loadMoreWrap.style.display = filteredDreams.length > displayedCount ? 'block' : 'none';
+}
+
+function renderEmpty() {
+  document.getElementById('dreams-grid').innerHTML = `
+    <div class="empty-state">
+      <div class="es-icon">🌟</div>
+      <h3>No dreams found</h3>
+      <p>Be the first to share your dream with the world!</p>
+      <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
+    </div>
+  `;
+  document.getElementById('load-more-wrap').style.display = 'none';
+}
+
+function loadMore() {
+  displayedCount += PAGE_SIZE;
+  renderDreams();
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function setSort(sort) {
+  currentSort = sort;
+  applyFilters();
+}
+
+let searchTimer;
+function handleSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchQuery = document.getElementById('search-input').value.trim();
+    applyFilters();
+  }, 300);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+init();
 </script>
-
 </body>
 </html>
