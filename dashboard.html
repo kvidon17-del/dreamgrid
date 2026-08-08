@@ -927,7 +927,7 @@ function resetLocationSelection() {
 function initLocationStep() {
   if (!locMap) {
     locMap = L.map('loc-map', { worldCopyJump: true }).setView([20, 10], 2);
-    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
+    L.tileLayer(`https://api.mapbox.com/styles/v1/dreamgrid/cmsk06k6a00ww01s832cs558t/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
       attribution: '&copy; Mapbox &copy; OpenStreetMap',
       tileSize: 512,
       zoomOffset: -1,
