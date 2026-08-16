@@ -1,0 +1,104 @@
+<!--
+  ПИСЬМО-ПОДТВЕРЖДЕНИЕ ОТКАЗА ОТ ПРАВА ОТКАЗА (durable medium)
+  =============================================================
+
+  ЗАЧЕМ ЭТО ПИСЬМО:
+  По закону (ст. 16(m) Директивы 2011/83/EU / ст. 6:230p(f) ГК Нидерландов)
+  недостаточно просто получить согласие через чекбокс — нужно ЕЩЁ И
+  зафиксировать это согласие на "долговечном носителе" (durable medium).
+  Email, который покупатель может сохранить/распечатать, для этого подходит.
+
+  КОГДА ОТПРАВЛЯТЬ:
+  Сразу после успешного сохранения cells + dreams в saveDream() —
+  то есть в тот же момент, когда сейчас показывается "Your dream is live!".
+  Это отдельное письмо от обычного "чека" о покупке (если у вас такое уже
+  есть) — можно объединить оба письма в одно, но сама формулировка отказа
+  от права должна быть явно видна.
+
+  КАК ОТПРАВИТЬ (технически):
+  Проще всего — новая Supabase Edge Function (по образцу уже существующей
+  для "Contact the Dreamer"), вызываемая из saveDream() сразу после
+  успешной записи в базу. Нужно передать: email пользователя, tier,
+  price, дату/время согласия (то самое withdrawal_waiver_at).
+
+  ПЕРЕМЕННЫЕ ДЛЯ ПОДСТАНОВКИ:
+  {{user_email}}, {{dream_title}}, {{tier_label}}, {{price}},
+  {{consent_datetime}}, {{dream_url}}
+-->
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dream Grid — Payment confirmation & withdrawal notice</title>
+</head>
+<body style="margin:0;padding:0;background:#070918;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#070918;padding:32px 0;">
+<tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#0f1228;border:1px solid rgba(167,139,250,0.25);border-radius:16px;overflow:hidden;">
+
+  <tr><td style="padding:32px 32px 16px;">
+    <div style="font-family:Arial,sans-serif;font-size:18px;font-weight:800;color:#ffffff;">✦ Dream Grid</div>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 8px;">
+    <h1 style="font-size:20px;color:#ffffff;margin:0 0 4px;">Your dream is live ✦</h1>
+    <p style="font-size:14px;color:rgba(255,255,255,0.6);margin:0;">Payment confirmation for your Dream Grid spot</p>
+  </td></tr>
+
+  <tr><td style="padding:20px 32px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
+      <tr><td style="padding:16px 20px;font-size:13px;color:rgba(255,255,255,0.6);">Dream</td>
+          <td style="padding:16px 20px;font-size:13px;color:#ffffff;text-align:right;">{{dream_title}}</td></tr>
+      <tr><td style="padding:0 20px 16px;font-size:13px;color:rgba(255,255,255,0.6);">Tier</td>
+          <td style="padding:0 20px 16px;font-size:13px;color:#ffffff;text-align:right;">{{tier_label}}</td></tr>
+      <tr><td style="padding:0 20px 16px;font-size:13px;color:rgba(255,255,255,0.6);">Amount paid</td>
+          <td style="padding:0 20px 16px;font-size:13px;color:#ffffff;text-align:right;">€{{price}}</td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 8px;">
+    <h2 style="font-size:15px;color:#ffffff;margin:0 0 8px;">Important — your right of withdrawal</h2>
+    <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0 0 10px;">
+      Your dream page is digital content, published immediately rather than delivered on a physical
+      medium. On {{consent_datetime}}, before completing payment, you confirmed that:
+    </p>
+    <ul style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.8;margin:0 0 10px;padding-left:20px;">
+      <li>you requested immediate delivery of this digital content, understanding your dream page
+          would be published as soon as payment was confirmed; and</li>
+      <li>you acknowledged that, by giving this consent, you lose your statutory 14-day right of
+          withdrawal (herroepingsrecht) for this purchase.</li>
+    </ul>
+    <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0;">
+      This is in accordance with Article 16(m) of Directive 2011/83/EU on consumer rights and
+      Article 6:230p(f) of the Dutch Civil Code (Burgerlijk Wetboek). Please keep this email for
+      your records.
+    </p>
+  </td></tr>
+
+  <tr><td style="padding:24px 32px 8px;">
+    <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0;">
+      If your dream was not successfully published due to a technical error, you may request a
+      full refund within 14 days by contacting
+      <a href="mailto:hello@dreamgrid.ink" style="color:#a78bfa;">hello@dreamgrid.ink</a>.
+    </p>
+  </td></tr>
+
+  <tr><td style="padding:16px 32px 32px;">
+    <a href="{{dream_url}}" style="display:inline-block;background:linear-gradient(135deg,#6d4df0,#9333ea);color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">
+      View your dream page →
+    </a>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 28px;border-top:1px solid rgba(255,255,255,0.08);">
+    <p style="font-size:11px;color:rgba(255,255,255,0.35);margin:16px 0 0;">
+      Dream Grid · dreamgrid.ink · This email was sent to {{user_email}} because a purchase was
+      made on your Dream Grid account.
+    </p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
