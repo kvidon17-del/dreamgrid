@@ -122,15 +122,6 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .stat-label { font-size: 15px; font-weight: 700; color: #fff; }
   .stat-sub { font-size: 12px; color: var(--muted); }
 
-  /* MAP */
-  .map-wrap { position: relative; height: 460px; overflow: hidden; margin-top: -10px; }
-  #map-canvas { width: 100%; height: 100%; display: block; }
-  .map-vignette-top { position: absolute; top: 0; left: 0; right: 0; height: 140px; background: linear-gradient(to bottom,var(--bg),transparent); pointer-events: none; }
-  .map-vignette-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 200px; background: linear-gradient(to top,var(--bg),transparent); pointer-events: none; }
-  .scroll-cta { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(255,255,255,0.25); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; }
-  .scroll-ring { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 14px; animation: bob 2.2s ease-in-out infinite; }
-  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
-
   /* SECTIONS */
   .section { padding: 100px 24px; }
   .section-inner { max-width: 1080px; margin: 0 auto; }
@@ -346,14 +337,6 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   </div>
 </section>
 
-<!-- MAP -->
-<div class="map-wrap">
-  <canvas id="map-canvas"></canvas>
-  <div class="map-vignette-top"></div>
-  <div class="map-vignette-bottom"></div>
-  <div class="scroll-cta"><div class="scroll-ring">↓</div>Scroll to Explore</div>
-</div>
-
 <!-- FEATURED DREAMS -->
 <section class="section" id="featured">
   <div class="section-inner">
@@ -389,7 +372,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     <a href="/pricing">Pricing</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
-    <a href="mailto:hello@dreamgrid.ink">Contact</a>
+    <a href="/contact">Contact</a>
   </div>
   <p class="footer-copy">© 2025 Dream Grid — Every dream deserves its place in the world.</p>
 </footer>
@@ -654,181 +637,6 @@ async function signOut() {
   window.addEventListener('resize',()=>{resize();initStars();});
 })();
 
-// ── Map ──
-(function() {
-  const canvas = document.getElementById('map-canvas');
-  const ctx = canvas.getContext('2d');
-  let W, H;
-  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
-  resize(); window.addEventListener('resize', resize);
-  const dreamColors = ['#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#f59e0b','#10b981','#3b82f6','#06b6d4'];
-  const dots = [];
-
-  function generateDots(landPath2D, hitCtx, targetCount) {
-    let attempts = 0;
-    while (dots.length < targetCount && attempts < targetCount * 60) {
-      attempts++;
-      const x = Math.random(), y = Math.random();
-      if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
-      dots.push({
-        x, y,
-        size: Math.random() * 1.0 + 0.2,
-        isDream: false, phase: Math.random() * Math.PI * 2, speed: 0.025 + Math.random() * 0.04,
-      });
-    }
-  }
-
-  function extractPolygons(geo) {
-    const feats = geo.type === 'FeatureCollection' ? geo.features : [geo];
-    const polygons = [];
-    for (const f of feats) {
-      const g = f.geometry || f;
-      if (!g) continue;
-      if (g.type === 'MultiPolygon') polygons.push(...g.coordinates);
-      else if (g.type === 'Polygon') polygons.push(g.coordinates);
-    }
-    return polygons;
-  }
-
-  async function loadMapDots() {
-    const hitCtx = document.createElement('canvas').getContext('2d');
-    let landPath2D;
-    try {
-      const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json');
-      const topology = await res.json();
-      const geo = topojson.feature(topology, topology.objects.land);
-      const polygons = extractPolygons(geo);
-      landPath2D = new Path2D();
-      for (const polygon of polygons) {
-        for (const ring of polygon) {
-          let prevX = null;
-          ring.forEach(([lon, lat], i) => {
-            const x = (lon + 180) / 360, y = (90 - lat) / 180;
-            if (i === 0 || prevX === null || Math.abs(x - prevX) > 0.5) landPath2D.moveTo(x, y);
-            else landPath2D.lineTo(x, y);
-            prevX = x;
-          });
-          landPath2D.closePath();
-        }
-      }
-    } catch (e) {
-      console.error('World map data failed to load, using fallback shapes', e);
-      const fallback = [[0.15,0.38,0.11,0.18],[0.22,0.64,0.07,0.14],[0.47,0.27,0.07,0.13],[0.48,0.57,0.08,0.17],[0.65,0.28,0.14,0.18],[0.77,0.67,0.07,0.07]];
-      landPath2D = new Path2D();
-      for (const [cx,cy,rx,ry] of fallback) landPath2D.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
-    }
-    generateDots(landPath2D, hitCtx, 1400);
-
-    cachedLandPath2D = landPath2D;
-    cachedHitCtx = hitCtx;
-    await refreshDreamDots();
-  }
-  let cachedLandPath2D = null, cachedHitCtx = null;
-
-  async function refreshDreamDots() {
-    // Remove any previously-placed dream dots (real or decorative) so re-running this doesn't duplicate them
-    for (let i = dots.length - 1; i >= 0; i--) {
-      if (dots[i].isDream) dots.splice(i, 1);
-    }
-    const { data: { user } } = await sb.auth.getUser();
-    if (user) await loadRealDreams();
-    else generateDecorativeDreamDots(cachedLandPath2D, cachedHitCtx, 50);
-  }
-  window.refreshDreamDotsForAuth = refreshDreamDots;
-
-  loadMapDots();
-
-  // Real dreams from Supabase — only shown to signed-in visitors
-  const TIER_DOT_SIZE = { basic: 2, standard: 2.8, premium: 3.6, vip: 5 };
-  async function loadRealDreams() {
-    const { data, error } = await sb.from('cells')
-      .select('lat,lng,tier,dreams(id,title)')
-      .eq('status', 'active')
-      .not('lat', 'is', null)
-      .limit(3000);
-    if (error || !data) return;
-    for (const cell of data) {
-      const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
-      dots.push({
-        x: (cell.lng + 180) / 360,
-        y: (90 - cell.lat) / 180,
-        size: TIER_DOT_SIZE[cell.tier] || 2,
-        baseColor: dreamColors[Math.floor(Math.random() * dreamColors.length)],
-        isDream: true,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.025 + Math.random() * 0.04,
-        dreamId: dream ? dream.id : null,
-      });
-    }
-  }
-
-  // Guests see glowing dots too (so the map still feels alive) — clicking any of them prompts sign up
-  function generateDecorativeDreamDots(landPath2D, hitCtx, targetCount) {
-    let placed = 0, attempts = 0;
-    while (placed < targetCount && attempts < targetCount * 60) {
-      attempts++;
-      const x = Math.random(), y = Math.random();
-      if (!hitCtx.isPointInPath(landPath2D, x, y, 'evenodd')) continue;
-      dots.push({
-        x, y,
-        size: TIER_DOT_SIZE[Object.keys(TIER_DOT_SIZE)[Math.floor(Math.random() * 4)]],
-        baseColor: dreamColors[Math.floor(Math.random() * dreamColors.length)],
-        isDream: true,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.025 + Math.random() * 0.04,
-        dreamId: 'signup',
-      });
-      placed++;
-    }
-  }
-
-  // Click a glowing dream dot to open it
-  canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left, clickY = e.clientY - rect.top;
-    let closest = null, closestDist = 14;
-    for (const d of dots) {
-      if (!d.dreamId) continue;
-      const px = d.x * W, py = d.y * H + H * 0.04;
-      const dist = Math.hypot(px - clickX, py - clickY);
-      if (dist < closestDist) { closestDist = dist; closest = d; }
-    }
-    if (closest) {
-      if (!currentUser) { openModal('signup'); return; }
-      window.open(`/dream/${closest.dreamId}`, '_blank');
-    }
-  });
-  canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    let hovering = false;
-    for (const d of dots) {
-      if (!d.dreamId) continue;
-      const px = d.x * W, py = d.y * H + H * 0.04;
-      if (Math.hypot(px - mx, py - my) < 14) { hovering = true; break; }
-    }
-    canvas.style.cursor = hovering ? 'pointer' : 'default';
-  });
-
-  let t=0;
-  function draw() {
-    t+=0.016; ctx.clearRect(0,0,W,H);
-    for (const d of dots) {
-      const px=d.x*W, py=d.y*H+H*0.04;
-      if (d.isDream) {
-        const pulse=0.55+Math.sin(t*d.speed*60+d.phase)*0.45;
-        const g=ctx.createRadialGradient(px,py,0,px,py,d.size*4);
-        g.addColorStop(0,d.baseColor+'bb'); g.addColorStop(1,d.baseColor+'00');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,py,d.size*4,0,Math.PI*2); ctx.fill();
-        ctx.globalAlpha=pulse; ctx.fillStyle=d.baseColor; ctx.beginPath(); ctx.arc(px,py,d.size,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
-      } else {
-        ctx.fillStyle=`rgba(120,140,220,${0.12+Math.random()*0.08})`; ctx.beginPath(); ctx.arc(px,py,d.size,0,Math.PI*2); ctx.fill();
-      }
-    }
-    requestAnimationFrame(draw);
-  }
-  draw();
-})();
 
 // ── Scroll animations ──
 (function() {

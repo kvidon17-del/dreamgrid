@@ -8,15 +8,15 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How It Works — Dream Grid</title>
-<meta name="description" content="Three simple steps to claim your place on the world's map of dreams.">
+<title>Contact — Dream Grid</title>
+<meta name="description" content="Get in touch with the Dream Grid team — questions, feedback, or partnership ideas.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://dreamgrid.ink/how-it-works">
-<meta property="og:title" content="How It Works — Dream Grid">
-<meta property="og:description" content="Three simple steps to claim your place on the world's map of dreams.">
+<meta property="og:url" content="https://dreamgrid.ink/contact">
+<meta property="og:title" content="Contact — Dream Grid">
+<meta property="og:description" content="Get in touch with the Dream Grid team — questions, feedback, or partnership ideas.">
 <meta property="og:image" content="https://dreamgrid.ink/og-default.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How It Works — Dream Grid">
+<meta name="twitter:title" content="Contact — Dream Grid">
 <meta name="twitter:image" content="https://dreamgrid.ink/og-default.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -155,6 +155,27 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .form-msg.success { color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); }
   .form-msg.error { color: #f87171; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2); }
 
+
+  /* CONTACT FORM */
+  .contact-section { padding: 20px 24px 100px; }
+  .contact-box { max-width: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; }
+  .contact-box .form-group { margin-bottom: 18px; }
+  .contact-box .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .contact-box .form-group input,
+  .contact-box .form-group textarea {
+    width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s;
+    font-family: 'Inter', sans-serif; resize: vertical;
+  }
+  .contact-box .form-group input:focus,
+  .contact-box .form-group textarea:focus { border-color: rgba(167,139,250,0.5); }
+  .contact-box .form-group textarea { min-height: 140px; line-height: 1.6; }
+  .contact-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .contact-alt { text-align: center; margin-top: 24px; font-size: 13px; color: var(--muted); }
+  .contact-alt a { color: #a78bfa; text-decoration: none; }
+  .contact-alt a:hover { text-decoration: underline; }
+
   /* FADE UP */
   .fade-up { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
   .fade-up.visible { opacity: 1; transform: translateY(0); }
@@ -183,7 +204,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   <ul class="nav-links">
     <li><a href="/explore">Explore Grid</a></li>
     <li><a href="/explore-dreams">Explore Dreams</a></li>
-    <li><a href="/how-it-works" class="active">How It Works</a></li>
+    <li><a href="/how-it-works">How It Works</a></li>
     <li><a href="/pricing">Pricing</a></li>
   </ul>
   <div class="nav-actions">
@@ -208,32 +229,35 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 
 <!-- PAGE HERO -->
 <div class="page-hero">
-  <h1>✦ How It <span>Works</span> ✦</h1>
+  <h1>✦ Get in <span>Touch</span> ✦</h1>
 </div>
 
-<!-- HOW IT WORKS -->
-<section class="section" id="how">
-  <div class="section-inner">
-    <p class="section-eyebrow fade-up">✦ How It Works</p>
-    <h2 class="section-title fade-up">Your dream, your place on the map</h2>
-    <p class="section-desc fade-up">Three steps to become part of the world's living dream archive.</p>
-    <div class="how-grid">
-      <div class="how-card fade-up"><div class="how-num">Step 01</div><span class="how-emoji">✨</span><h3>Choose your spot</h3><p>Search the world map or drop a pin anywhere — your real city, or the place you dream of.</p></div>
-      <div class="how-card fade-up"><div class="how-num">Step 02</div><span class="how-emoji">💭</span><h3>Write your dream</h3><p>Tell the world what you dream of. Add a photo, set your intention, and hit publish.</p></div>
-      <div class="how-card fade-up"><div class="how-num">Step 03</div><span class="how-emoji">🌟</span><h3>Inspire &amp; be inspired</h3><p>Get support from dreamers worldwide. Mark your dream fulfilled when it comes true.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
-<section class="cta-section">
-  <div class="cta-box fade-up">
-    <h2>Your dream is waiting for its place</h2>
-    <p>Join thousands of dreamers from 40+ countries. Claim your spot today — starting from just €3.</p>
-    <div class="cta-buttons">
-      <button class="btn-hero-primary" onclick="openModal('signup')">✦ Share Your Dream</button>
-      <a href="/pricing" class="btn-hero-secondary">💫 See Pricing</a>
-    </div>
+<!-- CONTACT FORM -->
+<section class="contact-section">
+  <div class="contact-box fade-up">
+    <p class="section-desc" style="margin-bottom:28px; max-width:none;">Questions, feedback, or partnership ideas — we'd love to hear from you.</p>
+    <form id="contact-form" onsubmit="event.preventDefault(); submitContactForm();">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="contact-name" name="name" placeholder="Your name" autocomplete="name" required>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="contact-email" name="email" placeholder="your@email.com" autocomplete="email" required>
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="contact-message" name="message" placeholder="How can we help?" required></textarea>
+      </div>
+      <!-- Honeypot: скрытое поле для базовой защиты от спам-ботов, людям не видно -->
+      <div class="contact-hp" aria-hidden="true">
+        <label>Company</label>
+        <input type="text" id="contact-company" name="company" tabindex="-1" autocomplete="off">
+      </div>
+      <button type="submit" class="btn-submit" id="contact-submit-btn">Send Message</button>
+      <div id="contact-msg" class="form-msg" style="display:none;"></div>
+    </form>
+    <p class="contact-alt">Prefer email? Reach us directly at <a href="mailto:hello@dreamgrid.ink">hello@dreamgrid.ink</a></p>
   </div>
 </section>
 
@@ -248,7 +272,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     <a href="/pricing">Pricing</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
-    <a href="/contact">Contact</a>
+    <a href="mailto:hello@dreamgrid.ink">Contact</a>
   </div>
   <p class="footer-copy">© 2025 Dream Grid — Every dream deserves its place in the world.</p>
 </footer>
@@ -473,6 +497,49 @@ sb.auth.onAuthStateChange((_event, session) => {
   updateNav(session?.user || null);
   if (session?.user) checkUser();
 });
+
+// ── Contact form ──
+async function submitContactForm() {
+  const name = document.getElementById('contact-name').value.trim();
+  const email = document.getElementById('contact-email').value.trim();
+  const message = document.getElementById('contact-message').value.trim();
+  const company = document.getElementById('contact-company').value; // honeypot
+  const msgEl = document.getElementById('contact-msg');
+  const btn = document.getElementById('contact-submit-btn');
+
+  if (!name || !email || !message) {
+    msgEl.textContent = 'Please fill in all fields.';
+    msgEl.className = 'form-msg error';
+    msgEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  msgEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, message, company }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
+
+    msgEl.textContent = '✓ Message sent! We\'ll get back to you soon.';
+    msgEl.className = 'form-msg success';
+    msgEl.style.display = 'block';
+    document.getElementById('contact-form').reset();
+  } catch (err) {
+    msgEl.textContent = 'Could not send your message. Please try again or email us directly.';
+    msgEl.className = 'form-msg error';
+    msgEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+  }
+}
 </script>
 </body>
 </html>
