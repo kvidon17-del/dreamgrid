@@ -7,8 +7,12 @@
 <meta name="description" content="Browse dreams shared by people all over the world — real hopes, real places, real stories.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Прогрев самых важных для первого кадра ресурсов: модуль глобуса и его текстура Земли.
+     Leaflet сюда намеренно не входит — он подгружается позже, только когда пользователь
+     реально приближается к порогу кроссфейда (см. loadLeaflet() в скрипте ниже). -->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/globe.gl/+esm">
+<link rel="preload" as="image" href="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -314,8 +318,6 @@
 }
 </script>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script type="module">
 import Globe from 'globe.gl';
 
@@ -397,31 +399,82 @@ window.addEventListener('resize', () => {
 });
 
 // ── Кроссфейд глобус → 2D-карта ──
+// Leaflet/Mapbox нужны только когда пользователь реально доскроллил до перехода.
+// До этого момента ни leaflet.css, ни leaflet.js, ни тайлы карты вообще не запрашиваются —
+// это убирает синхронный блокирующий <script> из head и лишний сетевой/рендер-вес при первой загрузке.
 const CROSSFADE = { altThreshold: 0.40, enterZoom: 4, exitZoom: 3 };
+const PRELOAD_ALTITUDE = CROSSFADE.altThreshold + 0.15; // начинаем подгружать Leaflet чуть заранее, с запасом
 
 const sceneWrapper = document.getElementById('globe-scene');
 const leafletDiv = document.getElementById('leafletMap');
-const map = L.map(leafletDiv, {
-  zoomControl: true,
-  attributionControl: false,
-  dragging: true,
-  scrollWheelZoom: true,
-});
-// Кастомный неоновый Mapbox-стиль Dream Grid (тот же, что в конструкторе мечты) —
-// вместо стандартных серых тайлов CARTO dark_all. Даёт фирменную палитру и
-// подписи стран/городов на английском (name_en прописан в самом стиле).
-const MAPBOX_TOKEN = 'pk.eyJ1IjoiZHJlYW1ncmlkIiwiYSI6ImNtcmQ4dzlzbDAyYXEzMXNoODY1cjA5a2kifQ.WrI3v0W2PmJNgKk7iN-r3g';
-L.tileLayer(`https://api.mapbox.com/styles/v1/dreamgrid/cmsk06k6a00ww01s832cs558t/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
-  maxZoom: 19,
-}).addTo(map);
-map.setView([25, 20], CROSSFADE.enterZoom);
 
 let sceneMode = 'globe';
+let map = null;
+let dreamMarkersLayer = null;
+let leafletLoadPromise = null;
 
-function crossfadeToMap(lat, lng) {
+function loadLeafletAssets() {
+  const cssPromise = new Promise(resolve => {
+    if (document.querySelector('link[data-leaflet-css]')) return resolve();
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.setAttribute('data-leaflet-css', '1');
+    link.onload = () => resolve();
+    link.onerror = () => resolve(); // не блокируем карту из-за CSS
+    document.head.appendChild(link);
+  });
+  const jsPromise = new Promise((resolve, reject) => {
+    if (window.L) return resolve();
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Не удалось загрузить leaflet.js'));
+    document.head.appendChild(script);
+  });
+  return Promise.all([cssPromise, jsPromise]);
+}
+
+function initLeafletMap() {
+  if (map) return;
+  map = L.map(leafletDiv, {
+    zoomControl: true,
+    attributionControl: false,
+    dragging: true,
+    scrollWheelZoom: true,
+  });
+  // Кастомный неоновый Mapbox-стиль Dream Grid (тот же, что в конструкторе мечты) —
+  // вместо стандартных серых тайлов CARTO dark_all. Даёт фирменную палитру и
+  // подписи стран/городов на английском (name_en прописан в самом стиле).
+  const MAPBOX_TOKEN = 'pk.eyJ1IjoiZHJlYW1ncmlkIiwiYSI6ImNtcmQ4dzlzbDAyYXEzMXNoODY1cjA5a2kifQ.WrI3v0W2PmJNgKk7iN-r3g';
+  L.tileLayer(`https://api.mapbox.com/styles/v1/dreamgrid/cmsk06k6a00ww01s832cs558t/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
+    maxZoom: 19,
+  }).addTo(map);
+  map.setView([25, 20], CROSSFADE.enterZoom);
+
+  map.on('zoomend', () => {
+    if (sceneMode === 'map' && map.getZoom() <= CROSSFADE.exitZoom) {
+      const c = map.getCenter();
+      crossfadeToGlobe(c.lat, c.lng);
+    }
+  });
+
+  dreamMarkersLayer = L.layerGroup().addTo(map);
+  renderDreamMarkers(); // на случай если мечты уже подгрузились раньше карты
+}
+
+function ensureLeaflet() {
+  if (!leafletLoadPromise) {
+    leafletLoadPromise = loadLeafletAssets().then(initLeafletMap);
+  }
+  return leafletLoadPromise;
+}
+
+async function crossfadeToMap(lat, lng) {
   sceneMode = 'map';
   globe.controls().enabled = false;
   sceneWrapper.classList.add('faded');
+  await ensureLeaflet(); // обычно уже готово благодаря предзагрузке на PRELOAD_ALTITUDE
   leafletDiv.classList.add('active');
   map.setView([lat, lng], CROSSFADE.enterZoom, { animate: false });
 }
@@ -434,17 +487,13 @@ function crossfadeToGlobe(lat, lng) {
   globe.pointOfView({ lat, lng, altitude: CROSSFADE.altThreshold * 1.15 }, 0);
 }
 
-map.on('zoomend', () => {
-  if (sceneMode === 'map' && map.getZoom() <= CROSSFADE.exitZoom) {
-    const c = map.getCenter();
-    crossfadeToGlobe(c.lat, c.lng);
-  }
-});
-
 function pollGlobeZoom() {
   requestAnimationFrame(pollGlobeZoom);
   if (sceneMode !== 'globe') return;
   const pov = globe.pointOfView();
+  if (pov.altitude <= PRELOAD_ALTITUDE) {
+    ensureLeaflet(); // тихая предзагрузка чуть выше порога, чтобы к моменту перехода Leaflet уже был готов
+  }
   if (pov.altitude <= CROSSFADE.altThreshold) {
     crossfadeToMap(pov.lat, pov.lng);
   }
@@ -476,7 +525,27 @@ async function loadStats() {
 loadStats();
 
 const TIER_MAP_RADIUS_PX = { basic: 5, standard: 6, premium: 7, vip: 9 };
-const dreamMarkersLayer = L.layerGroup().addTo(map);
+
+// Строит маркеры мечт на 2D-карте. Безопасно вызывать до того, как Leaflet-карта
+// вообще создана (map/dreamMarkersLayer ещё null) — тогда просто ничего не делает,
+// а initLeafletMap() перезовёт эту же функцию, когда карта будет готова.
+function renderDreamMarkers() {
+  if (!map || !dreamMarkersLayer) return;
+  dreamMarkersLayer.clearLayers();
+  for (const d of dreamPoints) {
+    const marker = L.circleMarker([d.lat, d.lng], {
+      radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
+      color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+      fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+      fillOpacity: 0.9,
+      weight: 2,
+      opacity: 1,
+    });
+    marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
+    marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
+    marker.addTo(dreamMarkersLayer);
+  }
+}
 
 async function loadRealDreams() {
   const { data, error } = await sbGlobe.from('cells')
@@ -497,72 +566,24 @@ async function loadRealDreams() {
   dreamCountScale = Math.max(1, Math.min(3, 6 / Math.sqrt(n)));
 
   refreshPoints();
-
-  dreamMarkersLayer.clearLayers();
-  for (const d of dreamPoints) {
-    const marker = L.circleMarker([d.lat, d.lng], {
-      radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
-      color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-      fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-      fillOpacity: 0.9,
-      weight: 2,
-      opacity: 1,
-    });
-    marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
-    marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
-    marker.addTo(dreamMarkersLayer);
-  }
+  renderDreamMarkers(); // если карта ещё не создана, функция тихо ничего не сделает
 }
 loadRealDreams();
 
-// ── Золотая цифровая "пыль" по маске суши/воды ──
-function loadLandMask(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      resolve({ data, width: canvas.width, height: canvas.height });
-    };
-    img.onerror = (e) => reject(new Error('image failed to load: ' + url));
-    img.src = url;
-  });
-}
-function isLandFromMask(mask, lon, lat) {
-  const x = Math.floor(((lon + 180) / 360) * mask.width) % mask.width;
-  const y = Math.min(mask.height - 1, Math.max(0, Math.floor(((90 - lat) / 180) * mask.height)));
-  const idx = (y * mask.width + x) * 4;
-  return mask.data[idx] < 128;
-}
-function generateLandDust(mask, count) {
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const pts = [];
-  let tries = 0;
-  const maxTries = count * 5;
-  while (pts.length < count && tries < maxTries) {
-    const y = 1 - (tries / (maxTries - 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * tries;
-    const x = Math.cos(theta) * r, z = Math.sin(theta) * r;
-    tries++;
-    const lat = Math.asin(y) * (180 / Math.PI);
-    const lon = Math.atan2(z, x) * (180 / Math.PI);
-    if (!isLandFromMask(mask, lon, lat)) continue;
-    pts.push({ lat, lng: lon, kind: 'land', bright: Math.random() < 0.18 });
-  }
-  return pts;
-}
-loadLandMask('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-water.png')
-  .then(mask => {
-    landDustPoints = generateLandDust(mask, 16000);
+// ── Золотая цифровая "пыль" — координаты посчитаны один раз заранее (см. dust-points.json) ──
+// Раньше здесь при каждой загрузке страницы скачивалась картинка-маска суши/воды и в браузере
+// пересчитывались координаты для 16 000 точек. Теперь просто подгружаем готовый список.
+// Формат файла — компактный массив [lat, lng, bright] на каждую точку, bright: 0|1.
+fetch('/dust-points.json')
+  .then(res => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then(compact => {
+    landDustPoints = compact.map(([lat, lng, bright]) => ({ lat, lng, kind: 'land', bright: !!bright }));
     refreshPoints();
   })
-  .catch(err => console.error('Не удалось загрузить маску суши:', err.message || err));
+  .catch(err => console.error('Не удалось загрузить пыль:', err.message || err));
 
 // ── Столицы всех стран — открытый датасет, независимый слой ──
 const CAPITALS_CSV_URL = 'https://gist.githubusercontent.com/ofou/df09a6834a8421b4f376c875194915c9/raw/355eb56e164ddc3cd1a9467c524422cb674e71a9/country-capital-lat-long-population.csv';
