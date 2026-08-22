@@ -186,6 +186,7 @@
     font-size: 10px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px;
   }
+  .tier-free { background: rgba(148,163,184,0.25); border: 1px solid rgba(148,163,184,0.45); color: #cbd5e1; }
   .tier-basic { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; }
   .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
   .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
@@ -383,8 +384,8 @@ let searchQuery = '';
 let displayedCount = PAGE_SIZE;
 let isLoggedIn = false;
 
-const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
-const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
+const tierEmojis = { free: '🌱', basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { free: 'Free', basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
 
 
 let currentView = localStorage.getItem('dreamgrid_view') || 'grid';
@@ -447,7 +448,7 @@ function applyFilters() {
   }
 
   // Sort
-  const tierRank = { vip: 3, premium: 2, standard: 1, basic: 0 };
+  const tierRank = { vip: 4, premium: 3, standard: 2, basic: 1, free: 0 };
   if (currentSort === 'featured') {
     result.sort((a,b) => {
       const rankDiff = (tierRank[b.cells?.tier] ?? 0) - (tierRank[a.cells?.tier] ?? 0);
