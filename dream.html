@@ -205,6 +205,17 @@
   }
   .btn-share-main:hover { background: rgba(167,139,250,0.22); border-color: rgba(167,139,250,0.5); }
 
+  .btn-help-real {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 26px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    background: var(--grad-btn); border: none;
+    color: #fff; text-decoration: none; transition: all 0.2s;
+    box-shadow: 0 6px 20px rgba(99,60,220,0.35);
+    order: -1;
+  }
+  .btn-help-real:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,60,220,0.45); }
+
   .btn-contact-dreamer {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 12px 24px; border-radius: var(--radius-sm);
@@ -437,6 +448,9 @@
 
   <!-- Action buttons -->
   <div class="actions-bar">
+    <a class="btn-help-real" id="btn-help-real" href="#" target="_blank" rel="noopener" style="display:none;">
+      💛 Help Make It Real
+    </a>
     <button class="btn-like" id="btn-like" onclick="toggleLike()">
       <span id="like-icon">🤍</span>
       <span id="like-count">0</span> Likes
@@ -484,7 +498,7 @@
   <!-- Inspire CTA -->
   <div class="inspire-cta">
     <h3>What's your dream? ✦</h3>
-    <p>Join thousands of dreamers from 40+ countries. Claim your permanent place on the world's dream map — starting from just €3.</p>
+    <p>Join thousands of dreamers from 40+ countries. Claim your permanent place on the world's dream map — it's free to start.</p>
     <a href="/" class="btn-inspire">✦ Share Your Dream</a>
   </div>
 
@@ -685,13 +699,20 @@ function renderDream(dream) {
   document.getElementById('dream-description').textContent = dream.description || '';
 
   // Cell info
-  const tierLabels = { basic: 'My Dream', standard: 'Big Dream', premium: 'Dream of the Year', vip: 'Dream Legend · VIP' };
-  const tierColors = { basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
+  const tierLabels = { free: 'Just a Dream', basic: 'My Dream', standard: 'Big Dream', premium: 'Dream of the Year', vip: 'Dream Legend · VIP' };
+  const tierColors = { free: '#64748b', basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
   const tier = dream.cells?.tier || 'basic';
   document.getElementById('cell-num').textContent = `#${dream.cell_id}`;
   document.getElementById('cell-tier-label').textContent = tierLabels[tier] || 'Dream';
   document.getElementById('cell-badge').style.background = `linear-gradient(135deg, ${tierColors[tier]}, ${tierColors[tier]}99)`;
   document.getElementById('cell-date').textContent = 'Claimed on ' + new Date(dream.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  // "Help Make It Real" button (Premium+, only when the dreamer added a link)
+  if (dream.help_link) {
+    const helpBtn = document.getElementById('btn-help-real');
+    helpBtn.href = dream.help_link;
+    helpBtn.style.display = 'inline-flex';
+  }
 
   // VIP gets a gold glow on the hero photo and cell badge
   if (tier === 'vip') {
