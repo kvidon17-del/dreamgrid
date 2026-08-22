@@ -136,6 +136,15 @@
     animation: bob 2.2s ease-in-out infinite;
   }
   @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
+  /* Dream avatar markers — 2D Leaflet map only, shown at high zoom instead of plain dots */
+  .dream-avatar-marker { background: transparent; border: none; }
+  .dam-inner {
+    width: 34px; height: 34px; border-radius: 50%;
+    background-size: cover; background-position: center;
+    border: 2.5px solid; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    cursor: pointer; transition: transform 0.15s;
+  }
+  .dam-inner:hover { transform: scale(1.12); }
   .filters-bar {
     padding: 24px 48px;
     display: flex; align-items: center; gap: 12px;
@@ -477,10 +486,16 @@ function initLeafletMap() {
   }).addTo(map);
   map.setView([25, 20], CROSSFADE.enterZoom);
 
+  let lastAvatarMode = null;
   map.on('zoomend', () => {
     if (sceneMode === 'map' && map.getZoom() <= CROSSFADE.exitZoom) {
       const c = map.getCenter();
       crossfadeToGlobe(c.lat, c.lng);
+    }
+    const avatarMode = map.getZoom() >= AVATAR_ZOOM_THRESHOLD;
+    if (avatarMode !== lastAvatarMode) {
+      lastAvatarMode = avatarMode;
+      renderDreamMarkers();
     }
   });
 
@@ -550,6 +565,18 @@ async function loadStats() {
 loadStats();
 
 const TIER_MAP_RADIUS_PX = { free: 4, basic: 5, standard: 6, premium: 7, vip: 9 };
+const AVATAR_ZOOM_THRESHOLD = 8; // 2D map only — at/above this zoom level, dots become dreamer photo thumbnails
+
+function dreamAvatarIcon(d) {
+  const color = TIER_COLOR[d.tier] || TIER_COLOR.basic;
+  const safeUrl = d.photoUrl.replace(/'/g, "%27");
+  return L.divIcon({
+    className: 'dream-avatar-marker',
+    html: `<div class="dam-inner" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
 
 // Строит маркеры мечт на 2D-карте. Безопасно вызывать до того, как Leaflet-карта
 // вообще создана (map/dreamMarkersLayer ещё null) — тогда просто ничего не делает,
@@ -557,15 +584,18 @@ const TIER_MAP_RADIUS_PX = { free: 4, basic: 5, standard: 6, premium: 7, vip: 9 
 function renderDreamMarkers() {
   if (!map || !dreamMarkersLayer) return;
   dreamMarkersLayer.clearLayers();
+  const useAvatars = map.getZoom() >= AVATAR_ZOOM_THRESHOLD;
   for (const d of dreamPoints) {
-    const marker = L.circleMarker([d.lat, d.lng], {
-      radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
-      color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-      fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-      fillOpacity: 0.9,
-      weight: 2,
-      opacity: 1,
-    });
+    const marker = (useAvatars && d.photoUrl)
+      ? L.marker([d.lat, d.lng], { icon: dreamAvatarIcon(d) })
+      : L.circleMarker([d.lat, d.lng], {
+          radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
+          color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+          fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+          fillOpacity: 0.9,
+          weight: 2,
+          opacity: 1,
+        });
     marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
     marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
     marker.addTo(dreamMarkersLayer);
@@ -574,7 +604,7 @@ function renderDreamMarkers() {
 
 async function loadRealDreams() {
   const { data, error } = await sbGlobe.from('cells')
-    .select('lat,lng,tier,dreams(id,title)')
+    .select('lat,lng,tier,dreams(id,title,photo_url)')
     .eq('status', 'active')
     .not('lat', 'is', null)
     .limit(3000);
@@ -583,7 +613,7 @@ async function loadRealDreams() {
     .map(cell => {
       const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
       if (!dream) return null;
-      return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title };
+      return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title, photoUrl: dream.photo_url || null };
     })
     .filter(Boolean);
 
