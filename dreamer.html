@@ -86,6 +86,7 @@
     background: linear-gradient(135deg, rgba(99,60,220,0.15), rgba(168,85,247,0.08));
   }
   .card-tier-badge { position: absolute; top: 12px; left: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; }
+  .tier-free { background: rgba(148,163,184,0.25); border: 1px solid rgba(148,163,184,0.45); color: #cbd5e1; }
   .tier-basic { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; }
   .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
   .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
@@ -189,8 +190,8 @@ const sb = createClient(
   'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5'
 );
 
-const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
-const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
+const tierEmojis = { free: '🌱', basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { free: 'Free', basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
 
 async function init() {
   const pathParts = window.location.pathname.split('/');
@@ -202,7 +203,10 @@ async function init() {
   }
 
   const { data: { user } } = await sb.auth.getUser();
-  if (user) document.getElementById('nav-dashboard').style.display = 'inline-flex';
+  if (user) {
+    document.getElementById('nav-dashboard').style.display = 'inline-flex';
+    document.getElementById('nav-share').href = '/dashboard?new=1';
+  }
 
   if (!user) {
     showSignInRequired();

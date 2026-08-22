@@ -212,7 +212,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   <div class="nav-actions">
     <div id="nav-guest" style="display:flex;align-items:center;gap:14px;">
       <button class="btn-ghost" onclick="openModal('signin')">Sign In</button>
-      <button class="btn-cta-nav" onclick="openModal('signup')">✦ Share Your Dream</button>
+      <button class="btn-cta-nav" onclick="shareYourDream()">✦ Share Your Dream</button>
     </div>
     <div id="nav-user" style="display:none;">
       <div class="user-menu">
@@ -375,6 +375,13 @@ function updateNav(user, profile) {
 }
 
 // ── Modal ──
+function shareYourDream() {
+  if (currentUser) {
+    window.location.href = '/dashboard?new=1';
+  } else {
+    openModal('signup');
+  }
+}
 function openModal(tab) {
   document.getElementById('modal-overlay').classList.add('active');
   switchTab(tab);

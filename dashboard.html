@@ -759,6 +759,12 @@ async function init() {
   populateUI(user);
   await loadUserData(user);
   document.getElementById('loading').style.display = 'none';
+
+  // Arrived here via a "Share Your Dream" button elsewhere on the site (?new=1) — jump straight to the create-dream form
+  if (new URLSearchParams(window.location.search).get('new') === '1') {
+    openDreamModal();
+    history.replaceState(null, '', window.location.pathname);
+  }
 }
 
 function populateUI(user) {

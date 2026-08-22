@@ -186,7 +186,6 @@
     font-size: 10px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px;
   }
-  .tier-free { background: rgba(148,163,184,0.25); border: 1px solid rgba(148,163,184,0.45); color: #cbd5e1; }
   .tier-basic { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; }
   .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
   .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
@@ -361,8 +360,8 @@
   </div>
   <div class="cta-banner">
     <h3>Ready to share your dream? ✦</h3>
-    <p>Join the world's map of dreams. Claim your cell starting from just €3.</p>
-    <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
+    <p>Join the world's map of dreams. Start for free, or claim a bigger spot from just $3.</p>
+    <a href="/" class="btn-cta-main" id="cta-share-link">✦ Share Your Dream</a>
   </div>
 </main>
 
@@ -382,9 +381,10 @@ let currentFilter = 'all';
 let currentSort = 'featured';
 let searchQuery = '';
 let displayedCount = PAGE_SIZE;
+let isLoggedIn = false;
 
-const tierEmojis = { free: '🌱', basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
-const tierLabels = { free: 'Free', basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
+const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
 
 
 let currentView = localStorage.getItem('dreamgrid_view') || 'grid';
@@ -403,6 +403,9 @@ async function init() {
   if (user) {
     document.getElementById('nav-dashboard').style.display = 'inline-flex';
     document.getElementById('nav-share').style.display = 'none';
+    isLoggedIn = true;
+    const ctaLink = document.getElementById('cta-share-link');
+    if (ctaLink) ctaLink.href = '/dashboard?new=1';
   }
 
   await loadDreams();
@@ -444,7 +447,7 @@ function applyFilters() {
   }
 
   // Sort
-  const tierRank = { vip: 4, premium: 3, standard: 2, basic: 1, free: 0 };
+  const tierRank = { vip: 3, premium: 2, standard: 1, basic: 0 };
   if (currentSort === 'featured') {
     result.sort((a,b) => {
       const rankDiff = (tierRank[b.cells?.tier] ?? 0) - (tierRank[a.cells?.tier] ?? 0);
@@ -513,7 +516,7 @@ function renderEmpty() {
       <div class="es-icon">🌟</div>
       <h3>No dreams found</h3>
       <p>Be the first to share your dream with the world!</p>
-      <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
+      <a href="${isLoggedIn ? '/dashboard?new=1' : '/'}" class="btn-cta-main" id="empty-share-link">✦ Share Your Dream</a>
     </div>
   `;
   document.getElementById('load-more-wrap').style.display = 'none';

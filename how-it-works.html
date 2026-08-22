@@ -212,7 +212,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   <div class="nav-actions">
     <div id="nav-guest" style="display:flex;align-items:center;gap:14px;">
       <button class="btn-ghost" onclick="openModal('signin')">Sign In</button>
-      <button class="btn-cta-nav" onclick="openModal('signup')">✦ Share Your Dream</button>
+      <button class="btn-cta-nav" onclick="shareYourDream()">✦ Share Your Dream</button>
     </div>
     <div id="nav-user" style="display:none;">
       <div class="user-menu">
@@ -254,7 +254,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     <h2>Your dream is waiting for its place</h2>
     <p>Join thousands of dreamers from 40+ countries. Claim your spot today — starting from just €3.</p>
     <div class="cta-buttons">
-      <button class="btn-hero-primary" onclick="openModal('signup')">✦ Share Your Dream</button>
+      <button class="btn-hero-primary" onclick="shareYourDream()">✦ Share Your Dream</button>
       <a href="/pricing" class="btn-hero-secondary">💫 See Pricing</a>
     </div>
   </div>
@@ -394,6 +394,13 @@ function updateNav(user, profile) {
 }
 
 // ── Modal ──
+function shareYourDream() {
+  if (currentUser) {
+    window.location.href = '/dashboard?new=1';
+  } else {
+    openModal('signup');
+  }
+}
 function openModal(tab) {
   document.getElementById('modal-overlay').classList.add('active');
   switchTab(tab);
