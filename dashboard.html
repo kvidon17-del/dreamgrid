@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.paypal.com/sdk/js?client-id=AXdTcQ4rHmU9FJNYicH7_LRkYKLFd8Npr9EuRXxWq9trt01o7ABujwWL01OmpVoC-YEQ0ZdI3ZlKvpGV&currency=EUR"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=AXdTcQ4rHmU9FJNYicH7_LRkYKLFd8Npr9EuRXxWq9trt01o7ABujwWL01OmpVoC-YEQ0ZdI3ZlKvpGV&currency=USD"></script>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -468,25 +468,31 @@
       <div class="modal-title">Choose your tier</div>
       <div class="modal-sub">Choose what your dream can include — and how it stands out on the map.</div>
       <div class="tier-grid">
+        <div class="tier-card" id="tier-free" onclick="selectTier('free',0)">
+          <div class="t-name">Just a Dream</div>
+          <div class="t-price">$0</div>
+          <div class="t-cells">🌱 Text only · visible dot</div>
+        </div>
         <div class="tier-card" id="tier-basic" onclick="selectTier('basic',3)">
           <div class="t-name">My Dream</div>
-          <div class="t-price">€3</div>
-          <div class="t-cells">✨ Text only</div>
+          <div class="t-price">$3</div>
+          <div class="t-cells">✨ + Photo · public page</div>
         </div>
-        <div class="tier-card" id="tier-standard" onclick="selectTier('standard',10)">
+        <div class="tier-card" id="tier-standard" onclick="selectTier('standard',5)">
           <div class="t-name">Big Dream</div>
-          <div class="t-price">€10</div>
-          <div class="t-cells">💫 + Photo · brighter pin</div>
+          <div class="t-price">$5</div>
+          <div class="t-cells">💫 + Video · brighter pin</div>
         </div>
-        <div class="tier-card popular-tier" id="tier-premium" onclick="selectTier('premium',25)">
+        <div class="tier-card popular-tier" id="tier-premium" onclick="selectTier('premium',10)">
           <div class="tier-badge">✦ Popular</div>
           <div class="t-name">Dream of the Year</div>
-          <div class="t-price">€25</div>
-          <div class="t-cells">⭐ + Photo + video · featured in Explore</div>
+          <div class="t-price">$10</div>
+          <div class="t-cells">⭐ + "Help Make It Real" · featured in Explore</div>
         </div>
-        <div class="tier-card" id="tier-vip" onclick="selectTier('vip',100)">
+        <!-- VIP tier: kept in code per product decision, hidden from selection until post-launch. Remove style="display:none;" to bring back. -->
+        <div class="tier-card" id="tier-vip" onclick="selectTier('vip',25)" style="display:none;">
           <div class="t-name">Dream Legend</div>
-          <div class="t-price">€100</div>
+          <div class="t-price">$25</div>
           <div class="t-cells">👑 Dedicated page · top of Explore</div>
         </div>
       </div>
@@ -558,6 +564,15 @@
         </div>
       </div>
 
+      <!-- HELP LINK (Premium+) -->
+      <div id="help-link-group" style="display:none;">
+        <div class="form-group">
+          <label>"Help Make It Real" link (optional)</label>
+          <input type="url" id="dream-help-link" placeholder="https://gofundme.com/your-campaign">
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">Only GoFundMe, PayPal.me, Buy Me a Coffee, or Ko-fi links are accepted.</div>
+        </div>
+      </div>
+
       <!-- GALLERY (VIP only) -->
       <div id="gallery-group" style="display:none;">
         <div class="form-group">
@@ -571,7 +586,7 @@
         </div>
       </div>
 
-      <button class="btn-next" onclick="goToStep3()">Continue to payment →</button>
+      <button class="btn-next" id="btn-step2-next" onclick="goToStep3()">Continue to payment →</button>
       <button class="btn-back" onclick="goToLocationStep()">← Back</button>
     </div>
 
@@ -585,7 +600,7 @@
             <div class="ps-label">You selected</div>
             <div class="ps-tier" id="payment-tier-label">BASIC</div>
           </div>
-          <div class="ps-price" id="payment-price">€3</div>
+          <div class="ps-price" id="payment-price">$3</div>
         </div>
         <div class="withdrawal-consent-row">
           <input type="checkbox" id="withdrawal-consent-check" onchange="onWithdrawalConsentChange()">
@@ -661,6 +676,14 @@
       </div>
     </div>
 
+    <div id="edit-help-link-group" style="display:none;">
+      <div class="form-group">
+        <label>"Help Make It Real" link (optional)</label>
+        <input type="url" id="edit-dream-help-link" placeholder="https://gofundme.com/your-campaign">
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">Only GoFundMe, PayPal.me, Buy Me a Coffee, or Ko-fi links are accepted.</div>
+      </div>
+    </div>
+
     <div id="edit-gallery-group" style="display:none;">
       <div class="form-group">
         <label>Extra photos (up to 4, VIP gallery)</label>
@@ -722,8 +745,8 @@ let searchResultMarker = null;  // small reference dot where a search landed
 let nearbyDreamsLayer = null;   // small icons for other dreams already on the map
 let nearbyDreamsTimer = null;   // debounce handle for reloading nearby dreams on pan/zoom
 
-const TIER_ICONS = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
-const TIER_RADIUS_M = { basic: 300, standard: 600, premium: 1000, vip: 1600 }; // purely decorative, doesn't block anyone else
+const TIER_ICONS = { free: '🌱', basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const TIER_RADIUS_M = { free: 150, basic: 300, standard: 600, premium: 1000, vip: 1600 }; // purely decorative, doesn't block anyone else
 // Mapbox public token — safe to expose in client-side code, this is how Mapbox tokens are meant to be used
 const MAPBOX_TOKEN = 'pk.eyJ1IjoiZHJlYW1ncmlkIiwiYSI6ImNtcmQ4dzlzbDAyYXEzMXNoODY1cjA5a2kifQ.WrI3v0W2PmJNgKk7iN-r3g';
 
@@ -839,7 +862,7 @@ function renderAllDreams(dreams) {
   const container = document.getElementById('dream-container');
   container.innerHTML = dreams.map(dream => {
     const photoHtml = dream.photo_url ? `<img src="${dream.photo_url}" class="dream-photo" alt="Dream photo">` : '';
-    const tierColors = { basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
+    const tierColors = { free: '#64748b', basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
     const color = tierColors[dream.cells?.tier] || '#6366f1';
     return `
       <div class="dream-card" style="margin-bottom:16px;">
@@ -871,6 +894,7 @@ function openDreamModal() {
   document.getElementById('dream-modal').classList.add('active');
   resetLocationSelection();
   galleryUrls = [];
+  document.getElementById('dream-help-link').value = '';
   goToStep1();
 }
 function closeDreamModal() {
@@ -896,7 +920,18 @@ function goToLocationStep() {
   updateStepBars(2);
   initLocationStep();
 }
-const TIER_DESC_LIMIT = { basic: 300, standard: 1000, premium: 1000, vip: 1500 };
+const TIER_DESC_LIMIT = { free: 300, basic: 300, standard: 1000, premium: 1000, vip: 1500 };
+
+// Trusted platforms allowed for the "Help Make It Real" link (Premium+)
+const HELP_LINK_ALLOWED_DOMAINS = ['gofundme.com', 'paypal.me', 'buymeacoffee.com', 'ko-fi.com'];
+function isAllowedHelpLink(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return HELP_LINK_ALLOWED_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+  } catch (e) {
+    return false;
+  }
+}
 
 // Basic first-line filter for the most obvious profanity/slurs/spam terms.
 // Not exhaustive — the real safety net is the "Report this dream" button on each dream page.
@@ -915,9 +950,11 @@ function goToStep2() {
   hideAllSteps();
   document.getElementById('step-2').style.display = 'block';
   updateStepBars(3);
-  document.getElementById('photo-group').style.display = ['standard','premium','vip'].includes(selectedTier) ? 'block' : 'none';
-  document.getElementById('video-group').style.display = ['premium','vip'].includes(selectedTier) ? 'block' : 'none';
+  document.getElementById('photo-group').style.display = ['basic','standard','premium','vip'].includes(selectedTier) ? 'block' : 'none';
+  document.getElementById('video-group').style.display = ['standard','premium','vip'].includes(selectedTier) ? 'block' : 'none';
+  document.getElementById('help-link-group').style.display = ['premium','vip'].includes(selectedTier) ? 'block' : 'none';
   document.getElementById('gallery-group').style.display = selectedTier === 'vip' ? 'block' : 'none';
+  document.getElementById('btn-step2-next').textContent = selectedTier === 'free' ? 'Publish for free →' : 'Continue to payment →';
 
   const limit = TIER_DESC_LIMIT[selectedTier] || 300;
   const descEl = document.getElementById('dream-desc');
@@ -932,11 +969,22 @@ function goToStep3() {
   if (containsBlockedWords(title + ' ' + desc)) {
     return showToast('Please remove inappropriate language before continuing.', 'error');
   }
+  if (['premium','vip'].includes(selectedTier)) {
+    const helpLink = document.getElementById('dream-help-link').value.trim();
+    if (helpLink && !isAllowedHelpLink(helpLink)) {
+      return showToast('That link isn\'t supported. Use GoFundMe, PayPal.me, Buy Me a Coffee, or Ko-fi.', 'error');
+    }
+  }
+  if (selectedTier === 'free') {
+    // Free tier — no payment step, publish right away
+    saveDream('FREE_' + Date.now(), false);
+    return;
+  }
   hideAllSteps();
   document.getElementById('step-3').style.display = 'block';
   updateStepBars(4);
   document.getElementById('payment-tier-label').textContent = selectedTier.toUpperCase();
-  document.getElementById('payment-price').textContent = `€${selectedPrice}`;
+  document.getElementById('payment-price').textContent = `$${selectedPrice}`;
   initPayPal();
 }
 function hideAllSteps() {
@@ -1356,9 +1404,11 @@ function openEditDreamModal(dreamId) {
   }
 
   document.getElementById('edit-dream-video-url').value = dream.video_url || '';
+  document.getElementById('edit-dream-help-link').value = dream.help_link || '';
 
-  document.getElementById('edit-photo-group').style.display = ['standard','premium','vip'].includes(tier) ? 'block' : 'none';
-  document.getElementById('edit-video-group').style.display = ['premium','vip'].includes(tier) ? 'block' : 'none';
+  document.getElementById('edit-photo-group').style.display = ['basic','standard','premium','vip'].includes(tier) ? 'block' : 'none';
+  document.getElementById('edit-video-group').style.display = ['standard','premium','vip'].includes(tier) ? 'block' : 'none';
+  document.getElementById('edit-help-link-group').style.display = ['premium','vip'].includes(tier) ? 'block' : 'none';
   document.getElementById('edit-gallery-group').style.display = tier === 'vip' ? 'block' : 'none';
 
   renderEditGalleryPreview();
@@ -1467,6 +1517,15 @@ async function saveEditedDream() {
 
   const videoUrl = document.getElementById('edit-dream-video-url')?.value?.trim() || null;
   const photoUrl = getEditPhotoUrl();
+  const tier = editingDream.cells?.tier || 'basic';
+  let helpLink = document.getElementById('edit-dream-help-link')?.value?.trim() || null;
+  if (['premium','vip'].includes(tier) && helpLink) {
+    if (!isAllowedHelpLink(helpLink)) {
+      return showToast('That link isn\'t supported. Use GoFundMe, PayPal.me, Buy Me a Coffee, or Ko-fi.', 'error');
+    }
+  } else {
+    helpLink = null;
+  }
 
   const btn = document.getElementById('btn-save-edit');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -1474,7 +1533,7 @@ async function saveEditedDream() {
   const { error } = await sb.from('dreams').update({
     title, description: desc,
     photo_url: photoUrl, video_url: videoUrl,
-    gallery_urls: editGalleryUrls,
+    gallery_urls: editGalleryUrls, help_link: helpLink,
   }).eq('id', editingDream.id);
 
   btn.disabled = false; btn.textContent = 'Save changes';
@@ -1524,7 +1583,7 @@ function initPayPal() {
   paypal.Buttons({
     style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' },
     createOrder: (data, actions) => actions.order.create({
-      purchase_units: [{ amount: { value: selectedPrice.toString(), currency_code: 'EUR' }, description: `Dream Grid — ${selectedTier} tier` }]
+      purchase_units: [{ amount: { value: selectedPrice.toString(), currency_code: 'USD' }, description: `Dream Grid — ${selectedTier} tier` }]
     }),
     onApprove: async (data, actions) => {
       const order = await actions.order.capture();
@@ -1541,6 +1600,8 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   const desc = document.getElementById('dream-desc').value.trim();
   const photoUrl = getPhotoUrl();
   const videoUrl = document.getElementById('dream-video-url')?.value?.trim() || null;
+  const rawHelpLink = document.getElementById('dream-help-link')?.value?.trim() || null;
+  const helpLink = (['premium','vip'].includes(selectedTier) && rawHelpLink && isAllowedHelpLink(rawHelpLink)) ? rawHelpLink : null;
   if (selectedLat === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
   const cellNum = Math.floor(Math.random() * 10000) + 1;
 
@@ -1549,7 +1610,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
     status: 'active', tier: selectedTier,
     price: selectedPrice, purchased_at: new Date().toISOString(),
     lat: selectedLat, lng: selectedLng,
-    withdrawal_waiver_at: new Date().toISOString(), // требует колонку withdrawal_waiver_at (timestamptz, nullable) в таблице cells
+    withdrawal_waiver_at: selectedTier === 'free' ? null : new Date().toISOString(), // требует колонку withdrawal_waiver_at (timestamptz, nullable) в таблице cells
   }).select().single();
 
   if (cellError) { showToast('Error saving. Contact support.', 'error'); return; }
@@ -1557,7 +1618,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   const { data: dream, error: dreamError } = await sb.from('dreams').insert({
     user_id: currentUser.id, cell_id: cell.id,
     title, description: desc, photo_url: photoUrl, status: 'active',
-    video_url: videoUrl, gallery_urls: galleryUrls,
+    video_url: videoUrl, gallery_urls: galleryUrls, help_link: helpLink,
   }).select().single();
 
   if (dreamError) { showToast('Error saving dream. Contact support.', 'error'); return; }
