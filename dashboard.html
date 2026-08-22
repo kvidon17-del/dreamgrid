@@ -926,11 +926,16 @@ const TIER_DESC_LIMIT = { free: 300, basic: 300, standard: 1000, premium: 1000, 
 const HELP_LINK_ALLOWED_DOMAINS = ['gofundme.com', 'paypal.me', 'buymeacoffee.com', 'ko-fi.com'];
 function isAllowedHelpLink(url) {
   try {
-    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    const withProtocol = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    const host = new URL(withProtocol).hostname.toLowerCase().replace(/^www\./, '');
     return HELP_LINK_ALLOWED_DOMAINS.some(d => host === d || host.endsWith('.' + d));
   } catch (e) {
     return false;
   }
+}
+// Normalizes a help-link before saving: adds https:// if missing so stored links are always clickable
+function normalizeHelpLink(url) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
 // Basic first-line filter for the most obvious profanity/slurs/spam terms.
@@ -942,7 +947,13 @@ const BLOCKED_WORDS = [
 ];
 function containsBlockedWords(text) {
   const lower = text.toLowerCase();
-  return BLOCKED_WORDS.some(w => lower.includes(w));
+  return BLOCKED_WORDS.some(w => {
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match whole word/phrase only — bounded by non-alphanumeric chars or string edges —
+    // so blocked terms don't false-positive inside innocent words (e.g. "spic" inside "auspicious").
+    const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i');
+    return re.test(lower);
+  });
 }
 
 function goToStep2() {
@@ -1523,6 +1534,7 @@ async function saveEditedDream() {
     if (!isAllowedHelpLink(helpLink)) {
       return showToast('That link isn\'t supported. Use GoFundMe, PayPal.me, Buy Me a Coffee, or Ko-fi.', 'error');
     }
+    helpLink = normalizeHelpLink(helpLink);
   } else {
     helpLink = null;
   }
@@ -1601,7 +1613,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   const photoUrl = getPhotoUrl();
   const videoUrl = document.getElementById('dream-video-url')?.value?.trim() || null;
   const rawHelpLink = document.getElementById('dream-help-link')?.value?.trim() || null;
-  const helpLink = (['premium','vip'].includes(selectedTier) && rawHelpLink && isAllowedHelpLink(rawHelpLink)) ? rawHelpLink : null;
+  const helpLink = (['premium','vip'].includes(selectedTier) && rawHelpLink && isAllowedHelpLink(rawHelpLink)) ? normalizeHelpLink(rawHelpLink) : null;
   if (selectedLat === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
   const cellNum = Math.floor(Math.random() * 10000) + 1;
 
