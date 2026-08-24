@@ -9,11 +9,11 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pricing — Dream Grid</title>
-<meta name="description" content="Choose your dream size — from €3 to €100. Every dream deserves its place.">
+<meta name="description" content="Choose your dream size — start free, or from $3. Every dream deserves its place.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://dreamgrid.ink/pricing">
 <meta property="og:title" content="Pricing — Dream Grid">
-<meta property="og:description" content="Choose your dream size — from €3 to €100. Every dream deserves its place.">
+<meta property="og:description" content="Choose your dream size — start free, or from $3. Every dream deserves its place.">
 <meta property="og:image" content="https://dreamgrid.ink/og-default.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Pricing — Dream Grid">
@@ -260,48 +260,58 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 <div class="pricing-section" id="pricing">
   <p class="section-eyebrow fade-up">✦ Pricing</p>
   <h2 class="section-title fade-up">Choose your dream size</h2>
-  <p class="section-desc fade-up">Every dream deserves its place. Start from just €3.</p>
+  <p class="section-desc fade-up">Every dream deserves its place. Start for free.</p>
   <div class="pricing-grid">
-    <div class="p-card fade-up">
-      <div class="p-tier">Basic</div><div class="p-name">My Dream</div>
-      <div class="p-price">€3</div><div class="p-price-label">one-time</div>
+    <div class="p-card fade-up" data-tier="free">
+      <div class="p-tier">Free</div><div class="p-name">Just a Dream</div>
+      <div class="p-price">$0</div><div class="p-price-label">forever</div>
       <div class="p-divider"></div>
       <ul class="p-features">
         <li><span class="p-check">✓</span> Your dream, pinned on the map</li>
         <li><span class="p-check">✓</span> Text up to 300 characters</li>
-        <li><span class="p-check">✓</span> Public dream page</li>
-        <li><span class="p-check">✓</span> Share to social media</li>
+        <li><span class="p-check">✓</span> Visible, findable map dot</li>
       </ul>
       <button class="p-btn" onclick="shareYourDream()">Get started</button>
     </div>
-    <div class="p-card fade-up">
-      <div class="p-tier">Standard</div><div class="p-name">Big Dream</div>
-      <div class="p-price">€10</div><div class="p-price-label">one-time</div>
+    <div class="p-card fade-up" data-tier="basic">
+      <div class="p-tier">Basic</div><div class="p-name">My Dream</div>
+      <div class="p-price">$3</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
-        <li><span class="p-check">✓</span> Everything in My Dream</li>
+        <li><span class="p-check">✓</span> Everything in Free</li>
         <li><span class="p-check">✓</span> Photo upload</li>
-        <li><span class="p-check">✓</span> Text up to 1,000 characters</li>
-        <li><span class="p-check">✓</span> Brighter pin on the map</li>
+        <li><span class="p-check">✓</span> Public dream page</li>
       </ul>
       <button class="p-btn" onclick="shareYourDream()">Get started</button>
     </div>
-    <div class="p-card featured fade-up">
+    <div class="p-card fade-up" data-tier="standard">
+      <div class="p-tier">Standard</div><div class="p-name">Big Dream</div>
+      <div class="p-price">$5</div><div class="p-price-label">one-time</div>
+      <div class="p-divider"></div>
+      <ul class="p-features">
+        <li><span class="p-check">✓</span> Everything in Basic</li>
+        <li><span class="p-check">✓</span> Video (YouTube or Vimeo)</li>
+        <li><span class="p-check">✓</span> Brighter, bigger pin on the map</li>
+      </ul>
+      <button class="p-btn" onclick="shareYourDream()">Get started</button>
+    </div>
+    <div class="p-card featured fade-up" data-tier="premium">
       <div class="p-badge">✦ Most Popular</div>
       <div class="p-tier">Premium</div><div class="p-name">Dream of the Year</div>
-      <div class="p-price">€25</div><div class="p-price-label">one-time</div>
+      <div class="p-price">$10</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
         <li><span class="p-check">✓</span> Everything in Big Dream</li>
-        <li><span class="p-check">✓</span> Video (YouTube or Vimeo)</li>
+        <li><span class="p-check">✓</span> "Help Make It Real" button linking to your fundraiser</li>
         <li><span class="p-check">✓</span> Featured on the homepage</li>
         <li><span class="p-check">✓</span> Priority placement in Explore</li>
       </ul>
       <button class="p-btn featured" onclick="shareYourDream()">Share your dream</button>
     </div>
-    <div class="p-card fade-up">
+    <!-- VIP tier: kept in code per product decision, hidden from purchase flow until post-launch. Remove style="display:none;" to bring back. -->
+    <div class="p-card fade-up" data-tier="vip" style="display:none;">
       <div class="p-tier">VIP</div><div class="p-name">Dream Legend</div>
-      <div class="p-price">€100</div><div class="p-price-label">one-time</div>
+      <div class="p-price">$25</div><div class="p-price-label">one-time</div>
       <div class="p-divider"></div>
       <ul class="p-features">
         <li><span class="p-check">✓</span> Everything in Dream of the Year</li>
@@ -318,7 +328,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 <section class="cta-section">
   <div class="cta-box fade-up">
     <h2>Your dream is waiting for its place</h2>
-    <p>Join thousands of dreamers from 40+ countries. Claim your spot today — starting from just €3.</p>
+    <p>Join thousands of dreamers from 40+ countries. Claim your spot today — it's free to start.</p>
     <div class="cta-buttons">
       <button class="btn-hero-primary" onclick="shareYourDream()">✦ Share Your Dream</button>
       <a href="/how-it-works" class="btn-hero-secondary">🌐 How it works</a>
