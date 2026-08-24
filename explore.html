@@ -584,7 +584,7 @@ const AVATAR_ZOOM_THRESHOLD = 8; // 2D map only — at/above this zoom level, do
 
 function dreamAvatarIcon(d) {
   const color = TIER_COLOR[d.tier] || TIER_COLOR.basic;
-  const safeUrl = d.photoUrl.replace(/'/g, "%27");
+  const safeUrl = d.avatarUrl.replace(/'/g, "%27");
   return L.divIcon({
     className: 'dream-avatar-marker',
     html: `<div class="dam-inner" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
@@ -601,7 +601,7 @@ function renderDreamMarkers() {
   dreamMarkersLayer.clearLayers();
   const useAvatars = map.getZoom() >= AVATAR_ZOOM_THRESHOLD;
   for (const d of dreamPoints) {
-    const marker = (useAvatars && d.photoUrl)
+    const marker = (useAvatars && d.avatarUrl)
       ? L.marker([d.lat, d.lng], { icon: dreamAvatarIcon(d) })
       : L.circleMarker([d.lat, d.lng], {
           radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
@@ -619,18 +619,29 @@ function renderDreamMarkers() {
 
 async function loadRealDreams() {
   const { data, error } = await sbGlobe.from('cells')
-    .select('lat,lng,tier,dreams(id,title,photo_url)')
+    .select('lat,lng,tier,user_id,dreams(id,title,photo_url)')
     .eq('status', 'active')
     .not('lat', 'is', null)
     .limit(3000);
   if (error) { console.error('Не удалось загрузить мечты:', error.message); return; }
-  dreamPoints = (data || [])
-    .map(cell => {
-      const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
-      if (!dream) return null;
-      return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title, photoUrl: dream.photo_url || null };
-    })
-    .filter(Boolean);
+
+  const rows = (data || []).map(cell => {
+    const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
+    if (!dream) return null;
+    return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title, userId: cell.user_id, dreamPhotoUrl: dream.photo_url || null };
+  }).filter(Boolean);
+
+  // Подтягиваем аватарки авторов мечт отдельным запросом (проще и надёжнее, чем встроенный join
+  // между cells и profiles — между этими таблицами нет прямого foreign key на уровне схемы).
+  const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean))];
+  let avatarByUser = {};
+  if (userIds.length) {
+    const { data: profs } = await sbGlobe.from('profiles').select('id,avatar_url').in('id', userIds);
+    avatarByUser = Object.fromEntries((profs || []).map(p => [p.id, p.avatar_url]));
+  }
+
+  // Приоритет: аватар профиля мечтателя → фото самой мечты (если профильного аватара нет) → обычная точка
+  dreamPoints = rows.map(r => ({ ...r, avatarUrl: avatarByUser[r.userId] || r.dreamPhotoUrl || null }));
 
   const n = Math.max(dreamPoints.length, 1);
   dreamCountScale = Math.max(1, Math.min(3, 6 / Math.sqrt(n)));
