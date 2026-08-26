@@ -212,9 +212,16 @@
     background: var(--grad-btn); border: none;
     color: #fff; text-decoration: none; transition: all 0.2s;
     box-shadow: 0 6px 20px rgba(99,60,220,0.35);
-    order: -1;
   }
   .btn-help-real:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,60,220,0.45); }
+
+  .help-real-wrap {
+    display: none; flex-direction: column; align-items: center; gap: 4px;
+    order: -1;
+  }
+  .help-real-caption {
+    font-size: 11px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.3;
+  }
 
   .btn-contact-dreamer {
     display: inline-flex; align-items: center; gap: 8px;
@@ -448,9 +455,12 @@
 
   <!-- Action buttons -->
   <div class="actions-bar">
-    <a class="btn-help-real" id="btn-help-real" href="#" target="_blank" rel="noopener" style="display:none;">
-      💛 Help Make It Real
-    </a>
+    <div class="help-real-wrap" id="help-real-wrap">
+      <a class="btn-help-real" id="btn-help-real" href="#" target="_blank" rel="noopener">
+        💛 Help Make It Real
+      </a>
+      <span class="help-real-caption">External link — not processed by Dream Grid</span>
+    </div>
     <button class="btn-like" id="btn-like" onclick="toggleLike()">
       <span id="like-icon">🤍</span>
       <span id="like-count">0</span> Likes
@@ -713,7 +723,7 @@ function renderDream(dream) {
   if (dream.help_link) {
     const helpBtn = document.getElementById('btn-help-real');
     helpBtn.href = dream.help_link;
-    helpBtn.style.display = 'inline-flex';
+    document.getElementById('help-real-wrap').style.display = 'inline-flex';
   }
 
   // VIP gets a gold glow on the hero photo and cell badge
