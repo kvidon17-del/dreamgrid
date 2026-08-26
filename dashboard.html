@@ -80,6 +80,19 @@
   .no-dream-card h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 10px; }
   .no-dream-card p { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; max-width: 400px; margin-left: auto; margin-right: auto; }
 
+  .mod-list { display: flex; flex-direction: column; gap: 12px; }
+  .mod-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; gap: 16px; align-items: center; }
+  .mod-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.06); }
+  .mod-thumb-empty { width: 56px; height: 56px; border-radius: 10px; flex-shrink: 0; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); }
+  .mod-info { flex: 1; min-width: 0; }
+  .mod-title { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mod-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .mod-tier-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 8px; }
+  .mod-view-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); text-decoration: none; white-space: nowrap; transition: all 0.2s; }
+  .mod-view-btn:hover { background: rgba(167,139,250,0.22); }
+  .mod-refresh-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; }
+  .mod-refresh-btn:hover { color: #fff; border-color: var(--border-hi); }
+
   .dream-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; display: flex; gap: 28px; align-items: flex-start; }
   .dream-cell-badge { width: 80px; height: 80px; border-radius: var(--radius); background: var(--grad-btn); display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 8px 24px rgba(99,60,220,0.35); }
   .dream-cell-badge .cell-num { font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; }
@@ -336,6 +349,7 @@
   <div class="dash-tabs">
     <button class="dash-tab active" id="tab-btn-dreams" onclick="switchDashTab('dreams')">💭 My Dreams</button>
     <button class="dash-tab" id="tab-btn-profile" onclick="switchDashTab('profile')">✦ My Profile</button>
+    <button class="dash-tab" id="tab-btn-moderation" onclick="switchDashTab('moderation')" style="display:none;">🛡️ Moderation</button>
   </div>
 
   <div id="tab-dreams">
@@ -448,6 +462,19 @@
         </div>
         <button class="btn-next" onclick="saveProfile()">Save profile</button>
       </div>
+    </div>
+  </div>
+
+  <div id="tab-moderation" style="display:none;">
+    <div class="section-header">
+      <div class="section-title">Latest dreams</div>
+      <div class="section-tag">🛡️ Admin only — content review</div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <button class="mod-refresh-btn" onclick="loadModerationQueue()">↻ Refresh</button>
+    </div>
+    <div class="mod-list" id="mod-list">
+      <p style="color:var(--muted);font-size:14px;">Loading…</p>
     </div>
   </div>
 </main>
@@ -749,6 +776,8 @@ const TIER_ICONS = { free: '🌱', basic: '✨', standard: '💫', premium: '⭐
 const TIER_RADIUS_M = { free: 150, basic: 300, standard: 600, premium: 1000, vip: 1600 }; // purely decorative, doesn't block anyone else
 // Mapbox public token — safe to expose in client-side code, this is how Mapbox tokens are meant to be used
 const MAPBOX_TOKEN = 'pk.eyJ1IjoiZHJlYW1ncmlkIiwiYSI6ImNtcmQ4dzlzbDAyYXEzMXNoODY1cjA5a2kifQ.WrI3v0W2PmJNgKk7iN-r3g';
+// Admin email — only this account sees the "Moderation" tab in the dashboard
+const ADMIN_EMAIL = 'sofjana@gmail.com';
 
 async function init() {
   const { data: { user } } = await sb.auth.getUser();
@@ -759,6 +788,11 @@ async function init() {
   populateUI(user);
   await loadUserData(user);
   document.getElementById('loading').style.display = 'none';
+
+  // Show the Moderation tab only for the admin account
+  if (user.email && user.email.toLowerCase() === ADMIN_EMAIL) {
+    document.getElementById('tab-btn-moderation').style.display = 'inline-flex';
+  }
 
   // Arrived here via a "Share Your Dream" button elsewhere on the site (?new=1) — jump straight to the create-dream form
   if (new URLSearchParams(window.location.search).get('new') === '1') {
@@ -816,8 +850,61 @@ function renderAvatar(elementId, avatarUrl, initial) {
 function switchDashTab(tab) {
   document.getElementById('tab-dreams').style.display = tab === 'dreams' ? 'block' : 'none';
   document.getElementById('tab-profile').style.display = tab === 'profile' ? 'block' : 'none';
+  document.getElementById('tab-moderation').style.display = tab === 'moderation' ? 'block' : 'none';
   document.getElementById('tab-btn-dreams').classList.toggle('active', tab === 'dreams');
   document.getElementById('tab-btn-profile').classList.toggle('active', tab === 'profile');
+  document.getElementById('tab-btn-moderation').classList.toggle('active', tab === 'moderation');
+  if (tab === 'moderation') loadModerationQueue();
+}
+
+// Admin-only: shows the most recently created dreams so new content (esp. photos/videos)
+// can be reviewed shortly after publication. Only ever called for the admin account —
+// the tab button that triggers it is hidden for everyone else.
+async function loadModerationQueue() {
+  const listEl = document.getElementById('mod-list');
+  listEl.innerHTML = '<p style="color:var(--muted);font-size:14px;">Loading…</p>';
+
+  const { data: dreams, error } = await sb
+    .from('dreams')
+    .select('*, cells(*), profiles(nickname)')
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  if (error || !dreams) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:14px;">Couldn\'t load dreams. Try refreshing.</p>';
+    return;
+  }
+
+  if (dreams.length === 0) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:14px;">No dreams yet.</p>';
+    return;
+  }
+
+  const tierColors = { free: '#64748b', basic: '#6366f1', standard: '#a855f7', premium: '#7c3aed', vip: '#d97706' };
+
+  listEl.innerHTML = dreams.map(d => {
+    const tier = d.cells?.tier || 'basic';
+    const color = tierColors[tier] || '#6366f1';
+    const thumb = d.photo_url
+      ? `<img class="mod-thumb" src="${d.photo_url.replace(/"/g, '%22')}" alt="">`
+      : `<div class="mod-thumb-empty">💭</div>`;
+    const name = d.profiles?.nickname || 'Anonymous dreamer';
+    const title = (d.title || 'Untitled dream').replace(/</g, '&lt;');
+    const when = new Date(d.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const hasMedia = d.photo_url || d.video_url || (d.gallery_urls && d.gallery_urls.length);
+    return `
+      <div class="mod-row">
+        ${thumb}
+        <div class="mod-info">
+          <div class="mod-title">${title}</div>
+          <div class="mod-meta">
+            <span class="mod-tier-badge" style="background:${color}22;color:${color};">${tier}</span>
+            ${name} · ${when}${hasMedia ? ' · has media' : ''}
+          </div>
+        </div>
+        <a class="mod-view-btn" href="/dream/${d.id}" target="_blank" rel="noopener">View →</a>
+      </div>`;
+  }).join('');
 }
 
 function toggleProfileEdit() {
