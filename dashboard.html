@@ -1731,6 +1731,29 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   createdDreamId = dream.id;
   localStorage.setItem('last_dream_id', dream.id);
 
+  // Send the withdrawal-right / payment confirmation email (durable medium,
+  // required under Art. 16(m) Directive 2011/83/EU & Art. 6:230p(f) BW).
+  // Skipped for the free tier (no payment involved) and for test-mode dreams
+  // created via the "🧪 Test without payment" button — no real payment was
+  // made, so a "payment confirmation" email would be inaccurate.
+  const isTestPayment = typeof paymentId === 'string' && paymentId.startsWith('TEST_');
+  if (selectedTier !== 'free' && !isTestPayment && currentUser.email) {
+    fetch('/api/send-purchase-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userEmail: currentUser.email,
+        dreamTitle: title,
+        tierLabel: selectedTier.toUpperCase(),
+        price: selectedPrice,
+        consentDatetime: cell.withdrawal_waiver_at,
+        dreamUrl: `${window.location.origin}/dream/${dream.id}`,
+      }),
+    }).catch(err => console.error('Failed to send purchase confirmation email:', err));
+    // Fire-and-forget: a slow or failed email must never block the buyer's
+    // flow to the success page. Failures are logged server-side for review.
+  }
+
   if (redirectToSuccess) {
     window.location.href = `/success?dream_id=${dream.id}`;
   } else {
