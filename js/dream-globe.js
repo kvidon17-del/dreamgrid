@@ -35,8 +35,6 @@ const PALETTE = {
   border: 'rgba(124, 140, 180, 0.25)',
 };
 
-const LAND_DUST_COUNT = 16000;
-
 // ── Города-узлы (декоративные якоря — не реальные данные пользователей) ──
 const HUBS = [
   [-74.0, 40.7, 1],[-0.1, 51.5, 1],[2.35, 48.85, 1],[13.4, 52.5, 2],[37.6, 55.75, 1],
@@ -109,13 +107,22 @@ function init() {
     })
     .catch(err => console.error('Dream Grid globe: не удалось загрузить границы стран', err));
 
-  // Точки-"пыль" по настоящей маске суши/воды (покрывает материки и острова)
-  loadLandMask('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-water.png')
-    .then(mask => {
-      const landDust = generateLandDust(mask, LAND_DUST_COUNT);
+  // Точки-"пыль" — тот же предвычисленный набор координат, что уже используется
+  // на Explore Grid (/dust-points.json). Раньше здесь при каждой загрузке страницы
+  // скачивалась картинка-маска суши/воды и в браузере пересчитывались координаты
+  // для 16 000 точек (getImageData + до 80 000 попыток сэмплирования) — это и было
+  // главной причиной задержки в несколько секунд. Теперь просто подгружаем готовый
+  // компактный JSON и парсим его — без единого пикселя decode на клиенте.
+  fetch('/dust-points.json')
+    .then(res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(compact => {
+      const landDust = compact.map(([lat, lng]) => ({ lat, lng, kind: 'land' }));
       globe.pointsData([...landDust, ...hubPoints]);
     })
-    .catch(err => console.error('Dream Grid globe: не удалось загрузить маску суши', err));
+    .catch(err => console.error('Dream Grid globe: не удалось загрузить пыль', err));
 
   window.addEventListener('resize', () => {
     globe.width(container.clientWidth);
@@ -173,51 +180,6 @@ function initScrollTransition(globe, container) {
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll, { passive: true });
   onScrollFrame(); // применяем сразу — на случай, если страница загрузилась не с самого верха
-}
-
-// ── Маска суши/воды: тёмный пиксель = суша, светлый = вода ───────────────
-function loadLandMask(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      resolve({ data, width: canvas.width, height: canvas.height });
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-function isLandFromMask(mask, lon, lat) {
-  const x = Math.floor(((lon + 180) / 360) * mask.width) % mask.width;
-  const y = Math.min(mask.height - 1, Math.max(0, Math.floor(((90 - lat) / 180) * mask.height)));
-  const idx = (y * mask.width + x) * 4;
-  return mask.data[idx] < 128;
-}
-
-function generateLandDust(mask, count) {
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const pts = [];
-  let tries = 0;
-  const maxTries = count * 5;
-  while (pts.length < count && tries < maxTries) {
-    const y = 1 - (tries / (maxTries - 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * tries;
-    const x = Math.cos(theta) * r, z = Math.sin(theta) * r;
-    tries++;
-    const lat = Math.asin(y) * (180 / Math.PI);
-    const lon = Math.atan2(z, x) * (180 / Math.PI);
-    if (!isLandFromMask(mask, lon, lat)) continue;
-    pts.push({ lat, lng: lon, kind: 'land' });
-  }
-  return pts;
 }
 
 if (document.readyState === 'loading') {
