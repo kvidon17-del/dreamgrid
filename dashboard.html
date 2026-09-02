@@ -339,6 +339,12 @@
     <button class="btn-claim" onclick="openDreamModal()">✦ Claim your cell</button>
   </div>
 
+  <div class="dash-tabs">
+    <button class="dash-tab active" id="tab-btn-profile" onclick="switchDashTab('profile')">✦ My Profile</button>
+    <button class="dash-tab" id="tab-btn-dreams" onclick="switchDashTab('dreams')">💭 My Dreams</button>
+    <button class="dash-tab" id="tab-btn-moderation" onclick="switchDashTab('moderation')" style="display:none;">🛡️ Moderation</button>
+  </div>
+
   <div class="stats-row">
     <div class="stat-card"><div class="stat-card-icon">🌍</div><div class="stat-card-value" id="stat-cells">0</div><div class="stat-card-label">Cells owned</div></div>
     <div class="stat-card"><div class="stat-card-icon">💭</div><div class="stat-card-value" id="stat-dreams">0</div><div class="stat-card-label">Dreams shared</div></div>
@@ -346,18 +352,13 @@
     <div class="stat-card"><div class="stat-card-icon">✨</div><div class="stat-card-value" id="stat-views">0</div><div class="stat-card-label">Dream views</div></div>
   </div>
 
-  <div class="dash-tabs">
-    <button class="dash-tab active" id="tab-btn-dreams" onclick="switchDashTab('dreams')">💭 My Dreams</button>
-    <button class="dash-tab" id="tab-btn-profile" onclick="switchDashTab('profile')">✦ My Profile</button>
-    <button class="dash-tab" id="tab-btn-moderation" onclick="switchDashTab('moderation')" style="display:none;">🛡️ Moderation</button>
-  </div>
-
-  <div id="tab-dreams">
+  <div id="tab-dreams" style="display:none;">
     <div style="margin-bottom: 40px;">
       <div class="section-header">
         <div class="section-title">My Dream</div>
         <div class="section-tag">✦ Your place on the map</div>
       </div>
+      <a href="https://www.dreamgrid.ink/explore" id="view-on-map-link" style="display:none;align-items:center;gap:6px;color:#a78bfa;text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">🌍 View my dream on the map</a>
       <div id="dream-container">
         <div class="no-dream-card">
           <div class="nd-icon">🌟</div>
@@ -369,7 +370,7 @@
     </div>
   </div>
 
-  <div id="tab-profile" style="display:none;">
+  <div id="tab-profile">
     <div>
       <div class="section-header">
         <div class="section-title">My Profile</div>
@@ -948,6 +949,7 @@ async function loadUserData(user) {
     document.getElementById('stat-likes').textContent = dreams.reduce((a,d) => a + (d.likes_count||0), 0);
     document.getElementById('stat-views').textContent = dreams.reduce((a,d) => a + (d.views_count||0), 0);
     renderAllDreams(dreams);
+    document.getElementById('view-on-map-link').style.display = 'inline-flex';
   }
 }
 
