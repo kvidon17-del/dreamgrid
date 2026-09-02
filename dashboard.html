@@ -357,7 +357,6 @@
         <div class="section-title">My Dream</div>
         <div class="section-tag">✦ Your place on the map</div>
       </div>
-      <a href="https://www.dreamgrid.ink/explore" id="view-on-map-link" style="display:none;align-items:center;gap:6px;color:#a78bfa;text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">🌍 View my dream on the map</a>
       <div id="dream-container">
         <div class="no-dream-card">
           <div class="nd-icon">🌟</div>
@@ -948,7 +947,6 @@ async function loadUserData(user) {
     document.getElementById('stat-likes').textContent = dreams.reduce((a,d) => a + (d.likes_count||0), 0);
     document.getElementById('stat-views').textContent = dreams.reduce((a,d) => a + (d.views_count||0), 0);
     renderAllDreams(dreams);
-    document.getElementById('view-on-map-link').style.display = 'inline-flex';
   }
 }
 
@@ -976,6 +974,7 @@ function renderAllDreams(dreams) {
             <button class="btn-action" onclick="openEditDreamModal('${dream.id}')">✏️ Edit</button>
             <button class="btn-action green" onclick="markFulfilled('${dream.id}')">✓ Mark Fulfilled</button>
             <button class="btn-action purple" onclick="shareDream('${dream.id}')">🔗 Share</button>
+            <a class="btn-action" href="https://www.dreamgrid.ink/explore?dream=${dream.id}" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center;">🌍 View on map</a>
           </div>
         </div>
       </div>

@@ -611,10 +611,33 @@ function renderDreamMarkers() {
           weight: 2,
           opacity: 1,
         });
+    marker._dreamId = d.dreamId;
     marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
     marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
     marker.addTo(dreamMarkersLayer);
   }
+  // Если пришли по ссылке "View my dream on the map" — открываем подсказку над нужной меткой,
+  // чтобы сразу было видно, какая именно это мечта.
+  if (focusDreamId) {
+    dreamMarkersLayer.eachLayer(m => {
+      if (m._dreamId === focusDreamId) m.openTooltip();
+    });
+  }
+}
+
+// ── Переход по прямой ссылке на конкретную мечту (?dream=<id> из личного кабинета) ──
+// В отличие от обычного скролл-кроссфейда (crossfadeToMap), сразу прыгаем на 2D-карту
+// с приближением до уровня аватарок (AVATAR_ZOOM_THRESHOLD), без анимации облёта глобуса.
+const focusDreamId = new URLSearchParams(window.location.search).get('dream');
+async function focusOnDream(target) {
+  sceneMode = 'map';
+  globe.controls().enabled = false;
+  globe.controls().autoRotate = false;
+  sceneWrapper.classList.add('faded');
+  await ensureLeaflet();
+  leafletDiv.classList.add('active');
+  map.setView([target.lat, target.lng], Math.max(AVATAR_ZOOM_THRESHOLD + 1, CROSSFADE.enterZoom), { animate: false });
+  renderDreamMarkers();
 }
 
 async function loadRealDreams() {
@@ -648,6 +671,12 @@ async function loadRealDreams() {
 
   refreshPoints();
   renderDreamMarkers(); // если карта ещё не создана, функция тихо ничего не сделает
+
+  // Пришли по прямой ссылке из личного кабинета — сразу летим к конкретной мечте
+  if (focusDreamId) {
+    const target = dreamPoints.find(d => d.dreamId === focusDreamId);
+    if (target) focusOnDream(target);
+  }
 }
 loadRealDreams();
 
