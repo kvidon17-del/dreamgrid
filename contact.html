@@ -233,7 +233,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   <div class="nav-actions">
     <div id="nav-guest" style="display:flex;align-items:center;gap:14px;">
       <button class="btn-ghost" onclick="openModal('signin')">Sign In</button>
-      <button class="btn-cta-nav" onclick="shareYourDream()">✦ Share Your Dream</button>
+      <button class="btn-cta-nav" onclick="openModal('signup')">✦ Share Your Dream</button>
     </div>
     <div id="nav-user" style="display:none;">
       <div class="user-menu">
@@ -328,7 +328,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
       <button class="modal-tab" id="tab-signin" onclick="switchTab('signin')">Sign In</button>
     </div>
     <div id="form-signup">
-      <form onsubmit="event.preventDefault(); signUp();" autocomplete="on">
+      <form id="signup-form-fields" onsubmit="event.preventDefault(); signUp();" autocomplete="on">
         <div class="form-group"><label>Email</label><input type="email" id="signup-email" name="email" placeholder="your@email.com" autocomplete="email"></div>
         <div class="form-group">
           <label>Password</label>
@@ -343,6 +343,12 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
         </div>
         <button type="submit" class="btn-submit">Create Account</button>
       </form>
+      <div id="signup-check-email" style="display:none;text-align:center;padding:8px 0;">
+        <div style="font-size:40px;margin-bottom:12px;">📬</div>
+        <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">Check your email</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:14px;">We've sent a confirmation link to <strong id="signup-check-email-address" style="color:#fff;"></strong>. Click it to activate your account.</div>
+        <div style="font-size:12px;color:var(--muted);opacity:0.8;">Don't see it? Check your spam folder.</div>
+      </div>
     </div>
     <div id="form-signin" style="display:none;">
       <form onsubmit="event.preventDefault(); signIn();" autocomplete="on">
@@ -418,13 +424,6 @@ function updateNav(user, profile) {
 }
 
 // ── Modal ──
-function shareYourDream() {
-  if (currentUser) {
-    window.location.href = '/dashboard?new=1';
-  } else {
-    openModal('signup');
-  }
-}
 function openModal(tab) {
   document.getElementById('modal-overlay').classList.add('active');
   switchTab(tab);
@@ -443,6 +442,8 @@ function switchTab(tab) {
   document.getElementById('form-signin').style.display = tab === 'signin' ? 'block' : 'none';
   document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
   document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('signup-form-fields').style.display = 'block';
+  document.getElementById('signup-check-email').style.display = 'none';
   clearMsg();
 }
 function showResetForm(show = true) {
@@ -504,7 +505,9 @@ async function signUp() {
   });
   btn.disabled = false; btn.textContent = 'Create Account';
   if (error) return showMsg(error.message, 'error');
-  showMsg('✓ Account created! Please check your email to confirm.', 'success');
+  document.getElementById('signup-form-fields').style.display = 'none';
+  document.getElementById('signup-check-email-address').textContent = email;
+  document.getElementById('signup-check-email').style.display = 'block';
 }
 
 // ── Sign In ──
