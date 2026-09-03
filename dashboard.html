@@ -761,6 +761,18 @@ let editUploadedPhotoUrl = null;
 let editGalleryUrls = [];
 let editDescLimit = 300;
 
+// ── Pre-signup dream draft (saved on the homepage before registration) ──
+const DRAFT_KEY = 'dg_dream_draft';
+let pendingDreamDraft = null;
+try {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (raw) pendingDreamDraft = JSON.parse(raw);
+} catch (e) { pendingDreamDraft = null; }
+function clearDreamDraft() {
+  pendingDreamDraft = null;
+  localStorage.removeItem(DRAFT_KEY);
+}
+
 // ── Location picker state (real interactive map) ──
 let selectedLat = null;
 let selectedLng = null;
@@ -1012,6 +1024,13 @@ function goToLocationStep() {
   document.getElementById('step-location').style.display = 'block';
   updateStepBars(2);
   initLocationStep();
+  if (pendingDreamDraft && pendingDreamDraft.lat != null && pendingDreamDraft.lng != null) {
+    setTimeout(() => {
+      placePin(pendingDreamDraft.lat, pendingDreamDraft.lng);
+      locMap.setView([pendingDreamDraft.lat, pendingDreamDraft.lng], 10);
+      showToast('We filled in the spot you picked earlier ✦', 'success');
+    }, 120);
+  }
 }
 const TIER_DESC_LIMIT = { free: 300, basic: 300, standard: 1000, premium: 1000, vip: 1500 };
 
@@ -1064,6 +1083,19 @@ function goToStep2() {
   const descEl = document.getElementById('dream-desc');
   descEl.maxLength = limit;
   document.querySelector('#desc-count').parentElement.innerHTML = `<span id="desc-count">${descEl.value.length}</span>/${limit}`;
+
+  if (pendingDreamDraft) {
+    const titleEl = document.getElementById('dream-title');
+    if (pendingDreamDraft.title && !titleEl.value) {
+      titleEl.value = pendingDreamDraft.title;
+      updateCharCount('dream-title', 'title-count', 80);
+    }
+    if (pendingDreamDraft.desc && !descEl.value) {
+      descEl.value = pendingDreamDraft.desc.slice(0, limit);
+      document.getElementById('desc-count').textContent = descEl.value.length;
+    }
+    clearDreamDraft();
+  }
 }
 function goToStep3() {
   const title = document.getElementById('dream-title').value.trim();

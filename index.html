@@ -214,6 +214,39 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .form-group input { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; font-family: 'Inter',sans-serif; }
   .form-group input:focus { border-color: rgba(167,139,250,0.5); }
+  .form-group textarea { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; transition: border-color 0.2s; outline: none; font-family: 'Inter',sans-serif; height: 100px; line-height: 1.6; resize: none; }
+  .form-group textarea:focus { border-color: rgba(167,139,250,0.5); }
+  .char-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 4px; }
+
+  /* DRAFT MODAL (pick a spot + write your dream — before signing up) */
+  .draft-modal .modal { max-width: 480px; }
+  .modal-title { font-family: 'Sora',sans-serif; font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+  .modal-sub { font-size: 14px; color: var(--muted); margin-bottom: 22px; }
+  .step-label { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+  .step-label span { color: #a78bfa; font-weight: 600; }
+  .loc-hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .loc-search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .loc-search-row input { flex: 1; padding: 11px 14px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 14px; outline: none; font-family: 'Inter',sans-serif; transition: border-color 0.2s; }
+  .loc-search-row input:focus { border-color: rgba(167,139,250,0.5); }
+  .btn-loc-search { padding: 11px 18px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+  .btn-loc-search:hover { opacity: 0.88; }
+  .btn-loc-search:disabled { opacity: 0.5; cursor: not-allowed; }
+  #draft-map { width: 100%; height: 280px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); margin-bottom: 14px; background: #0a0c1e; }
+  .loc-pin-icon { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); background: none; border: none; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #14172e; color: #fff; }
+  .leaflet-popup-content { font-size: 13px; font-family: 'Inter',sans-serif; }
+  .loc-selection-bar { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 8px; font-size: 13px; }
+  .loc-selection-bar.active { border-color: rgba(167,139,250,0.4); background: rgba(99,60,220,0.1); }
+  .loc-selection-text { color: var(--muted); }
+  .loc-selection-text strong { color: #fff; }
+  .btn-next { width: 100%; padding: 14px; background: var(--grad-btn); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: 'Inter',sans-serif; margin-top: 8px; }
+  .btn-next:hover { opacity: 0.88; }
+  .btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-back { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; margin-top: 12px; display: block; width: 100%; text-align: center; transition: color 0.2s; }
+  .btn-back:hover { color: #fff; }
+  .draft-signin-link { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+  .draft-signin-link a { color: #a78bfa; cursor: pointer; text-decoration: none; }
+  .draft-signin-link a:hover { text-decoration: underline; }
   .password-field { position: relative; }
   .password-field input { padding-right: 44px; }
   .btn-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; cursor: pointer; padding: 8px; opacity: 0.55; transition: opacity 0.2s; line-height: 1; }
@@ -417,6 +450,47 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   <p class="footer-copy">© 2025 Dream Grid — Every dream deserves its place in the world.</p>
 </footer>
 
+<!-- DRAFT MODAL: pick a spot + write your dream, before signing up -->
+<div class="modal-overlay draft-modal" id="draft-modal-overlay" onclick="closeDraftModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeDraftModal()">✕</button>
+
+    <div id="draft-step-location">
+      <div class="modal-title">✦ Choose your spot</div>
+      <p class="loc-hint">Search for a place, or drag the map and tap to drop your pin — your real city, or the place you dream of.</p>
+      <div class="loc-search-row">
+        <input type="text" id="draft-search-input" placeholder="e.g. Soesterberg, Netherlands" onkeydown="if(event.key==='Enter'){event.preventDefault();draftSearchLocation();}">
+        <button class="btn-loc-search" id="draft-search-btn" onclick="draftSearchLocation()">🔍 Find</button>
+      </div>
+      <div id="draft-map"></div>
+      <div class="loc-selection-bar" id="draft-selection-bar">
+        <span class="loc-selection-text" id="draft-selection-text">No spot selected yet — search above or tap the map.</span>
+      </div>
+      <button class="btn-next" id="draft-btn-next-loc" onclick="goToDraftText()" disabled>Continue →</button>
+      <div id="draft-form-msg" class="form-msg" style="display:none;"></div>
+    </div>
+
+    <div id="draft-step-text" style="display:none;">
+      <div class="modal-title">✦ Write your dream</div>
+      <p class="modal-sub">You can add a photo and choose your tier after this.</p>
+      <div class="form-group">
+        <label>Dream title *</label>
+        <input type="text" id="draft-title" placeholder="e.g. Open my own bakery in Amsterdam" maxlength="80" oninput="updateDraftCharCount('draft-title','draft-title-count',80)">
+        <div class="char-count"><span id="draft-title-count">0</span>/80</div>
+      </div>
+      <div class="form-group">
+        <label>Describe your dream *</label>
+        <textarea id="draft-desc" placeholder="Share the story behind your dream..." maxlength="300" oninput="updateDraftCharCount('draft-desc','draft-desc-count',300)"></textarea>
+        <div class="char-count"><span id="draft-desc-count">0</span>/300</div>
+      </div>
+      <button class="btn-next" id="draft-btn-continue" onclick="draftContinueToSignup()">Create account to continue →</button>
+      <button class="btn-back" onclick="backToDraftLocation()">← Back</button>
+      <p class="draft-signin-link">Already have an account? <a onclick="draftSignInInstead()">Sign in</a></p>
+      <div id="draft-form-msg-2" class="form-msg" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- AUTH MODAL -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
   <div class="modal">
@@ -448,6 +522,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
         <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">Check your email</div>
         <div style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:14px;">We've sent a confirmation link to <strong id="signup-check-email-address" style="color:#fff;"></strong>. Click it to activate your account.</div>
         <div style="font-size:12px;color:var(--muted);opacity:0.8;">Don't see it? Check your spam folder.</div>
+        <div id="signup-check-email-draft-note" style="display:none;margin-top:14px;font-size:12.5px;color:#a78bfa;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:10px;padding:10px 12px;">✦ Your dream draft is saved — come back to this site and confirm your email, then sign in to finish it.</div>
       </div>
     </div>
     <div id="form-signin" style="display:none;">
@@ -480,6 +555,142 @@ const { createClient } = supabase;
 const SUPABASE_URL = 'https://wnbgwonqpjwzdgcngkxi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hOXpOVD4w7BZURRbVUr75Q_JOpI98X5';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── DRAFT MODAL: pick a spot + write your dream, before signing up ──
+// Lets a first-time visitor start their dream (location + text) without the signup
+// wall getting in the way immediately. Saved to localStorage; picked up by
+// dashboard.html's create-dream wizard the first time it opens after login.
+const DRAFT_KEY = 'dg_dream_draft';
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiZHJlYW1ncmlkIiwiYSI6ImNtcmQ4dzlzbDAyYXEzMXNoODY1cjA5a2kifQ.WrI3v0W2PmJNgKk7iN-r3g';
+let draftMap = null, draftMarker = null, draftCircle = null, draftSearchMarker = null;
+let draftLat = null, draftLng = null;
+let leafletDraftLoadPromise = null;
+
+function ensureLeafletForDraft() {
+  if (leafletDraftLoadPromise) return leafletDraftLoadPromise;
+  leafletDraftLoadPromise = new Promise((resolve, reject) => {
+    if (window.L) return resolve();
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = resolve;
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+  return leafletDraftLoadPromise;
+}
+
+async function openDraftModal() {
+  document.getElementById('draft-modal-overlay').classList.add('active');
+  document.getElementById('draft-step-text').style.display = 'none';
+  document.getElementById('draft-step-location').style.display = 'block';
+  try {
+    await ensureLeafletForDraft();
+    initDraftMap();
+  } catch (e) {
+    showToastFallback('Could not load the map — check your connection and try again.');
+  }
+}
+function closeDraftModal() {
+  document.getElementById('draft-modal-overlay').classList.remove('active');
+}
+function closeDraftModalOutside(e) {
+  if (e.target === document.getElementById('draft-modal-overlay')) closeDraftModal();
+}
+function showToastFallback(msg) { showDraftMsg(msg, 'error', 1); }
+function showDraftMsg(text, type, step) {
+  const el = document.getElementById(step === 2 ? 'draft-form-msg-2' : 'draft-form-msg');
+  el.textContent = text;
+  el.className = 'form-msg ' + type;
+  el.style.display = 'block';
+}
+
+function initDraftMap() {
+  if (!draftMap) {
+    draftMap = L.map('draft-map', { worldCopyJump: true }).setView([20, 10], 2);
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}{r}?access_token=${MAPBOX_TOKEN}`, {
+      attribution: '&copy; Mapbox &copy; OpenStreetMap',
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 19,
+    }).addTo(draftMap);
+    draftMap.on('click', (e) => draftPlacePin(e.latlng.lat, e.latlng.lng));
+  }
+  setTimeout(() => draftMap.invalidateSize(), 50);
+}
+
+function draftPlacePin(lat, lng) {
+  draftLat = lat; draftLng = lng;
+  if (draftMarker) draftMap.removeLayer(draftMarker);
+  if (draftCircle) draftMap.removeLayer(draftCircle);
+  draftCircle = L.circle([lat, lng], { radius: 300, color: '#a78bfa', weight: 1.5, fillColor: '#7c5cf6', fillOpacity: 0.15 }).addTo(draftMap);
+  draftMarker = L.marker([lat, lng], {
+    icon: L.divIcon({ className: 'loc-pin-icon', html: '<div style="font-size:28px;line-height:1;">💭</div>', iconSize: [28, 28], iconAnchor: [14, 26] })
+  }).addTo(draftMap);
+  const bar = document.getElementById('draft-selection-bar');
+  bar.classList.add('active');
+  document.getElementById('draft-selection-text').innerHTML = `<strong>Spot selected</strong> — ${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+  document.getElementById('draft-btn-next-loc').disabled = false;
+}
+
+async function draftSearchLocation() {
+  const input = document.getElementById('draft-search-input');
+  const btn = document.getElementById('draft-search-btn');
+  const query = input.value.trim();
+  if (!query) return;
+  btn.disabled = true; btn.textContent = '⏳ …';
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    const results = await res.json();
+    if (!results.length) { showDraftMsg(`Couldn't find "${query}" — try a different spelling`, 'error', 1); return; }
+    const lat = parseFloat(results[0].lat), lon = parseFloat(results[0].lon);
+    if (draftSearchMarker) draftMap.removeLayer(draftSearchMarker);
+    draftSearchMarker = L.circleMarker([lat, lon], { radius: 7, color: '#f59e0b', weight: 2, fillColor: '#f59e0b', fillOpacity: 0.55 }).addTo(draftMap);
+    draftMap.flyTo([lat, lon], 13, { duration: 1.2 });
+  } catch (e) {
+    showDraftMsg('Search failed — check your connection and try again', 'error', 1);
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 Find';
+  }
+}
+
+function goToDraftText() {
+  if (draftLat === null) return;
+  document.getElementById('draft-step-location').style.display = 'none';
+  document.getElementById('draft-step-text').style.display = 'block';
+}
+function backToDraftLocation() {
+  document.getElementById('draft-step-text').style.display = 'none';
+  document.getElementById('draft-step-location').style.display = 'block';
+  setTimeout(() => draftMap && draftMap.invalidateSize(), 50);
+}
+function updateDraftCharCount(inputId, countId, max) {
+  document.getElementById(countId).textContent = document.getElementById(inputId).value.length;
+}
+
+function saveDreamDraft() {
+  const title = document.getElementById('draft-title').value.trim();
+  const desc = document.getElementById('draft-desc').value.trim();
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({ lat: draftLat, lng: draftLng, title, desc, savedAt: Date.now() }));
+}
+
+function draftContinueToSignup() {
+  const title = document.getElementById('draft-title').value.trim();
+  const desc = document.getElementById('draft-desc').value.trim();
+  if (!title || !desc) return showDraftMsg('Please add a title and description for your dream.', 'error', 2);
+  saveDreamDraft();
+  closeDraftModal();
+  openModal('signup');
+}
+function draftSignInInstead() {
+  saveDreamDraft();
+  closeDraftModal();
+  openModal('signin');
+}
 
 // ── Featured Dreams ──
 const FEATURED_TIER_LABEL = { premium: '⭐ Dream of the Year', vip: '👑 Dream Legend' };
@@ -525,6 +736,12 @@ async function checkUser() {
     profile = data;
   }
   updateNav(user, profile);
+  // If they confirmed their email and landed back here already signed in, and they still
+  // have a saved dream draft waiting — take them straight to finish it.
+  if (user && localStorage.getItem(DRAFT_KEY)) {
+    window.location.href = '/dashboard?new=1';
+    return;
+  }
   // If already logged in — show dashboard button in nav
   if (user) {
     const navGuest = document.getElementById('nav-guest');
@@ -569,7 +786,7 @@ function shareYourDream() {
   if (currentUser) {
     window.location.href = '/dashboard?new=1';
   } else {
-    openModal('signup');
+    openDraftModal();
   }
 }
 function openModal(tab) {
@@ -658,6 +875,7 @@ async function signUp() {
   document.getElementById('signup-form-fields').style.display = 'none';
   document.getElementById('signup-check-email-address').textContent = email;
   document.getElementById('signup-check-email').style.display = 'block';
+  document.getElementById('signup-check-email-draft-note').style.display = localStorage.getItem(DRAFT_KEY) ? 'block' : 'none';
 }
 
 // ── Sign In ──
@@ -673,7 +891,11 @@ async function signIn() {
   showMsg('✓ Welcome back!', 'success');
   updateNav(data.user);
   if (window.refreshDreamDotsForAuth) window.refreshDreamDotsForAuth();
-  setTimeout(() => { closeModal(); }, 900);
+  if (localStorage.getItem(DRAFT_KEY)) {
+    setTimeout(() => { window.location.href = '/dashboard?new=1'; }, 700);
+  } else {
+    setTimeout(() => { closeModal(); }, 900);
+  }
 }
 
 // ── Sign Out ──
