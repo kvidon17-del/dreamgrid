@@ -136,6 +136,29 @@
     animation: bob 2.2s ease-in-out infinite;
   }
   @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
+  .zoom-hint {
+    position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(10,12,30,0.72); border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.85); font-size: 13px; padding: 9px 16px;
+    border-radius: 999px; z-index: 8; pointer-events: none;
+    opacity: 0; transition: opacity 0.6s ease;
+    backdrop-filter: blur(6px);
+  }
+  .zoom-hint.visible { opacity: 1; }
+  .zoom-hint.fading { opacity: 0; }
+  /* Тёмная тема для всплывающей карточки мечты на 2D-карте (вместо перехода в новую вкладку) */
+  .leaflet-popup-content-wrapper {
+    background: #12142c; border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  }
+  .leaflet-popup-tip { background: #12142c; border: 1px solid rgba(167,139,250,0.3); }
+  .leaflet-popup-content { margin: 12px 14px; color: #fff; min-width: 180px; }
+  .leaflet-popup-close-button { color: rgba(255,255,255,0.5) !important; }
+  .dream-popup-photo { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; display: block; }
+  .dream-popup-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; line-height: 1.35; }
+  .dream-popup-link { font-size: 12px; color: #a78bfa; text-decoration: none; font-weight: 600; }
+  .dream-popup-link:hover { text-decoration: underline; }
   /* Dream avatar markers — 2D Leaflet map only, shown at high zoom instead of plain dots */
   .dream-avatar-marker { background: transparent; border: none; }
   .dam-inner {
@@ -331,6 +354,7 @@
         <canvas id="glow-canvas"></canvas>
       </div>
       <div id="leafletMap"></div>
+      <div class="zoom-hint" id="zoom-hint">🖱️ Scroll to zoom in and see dreamers up close</div>
     </div>
     <div class="hero-bottom-fade"></div>
     <div id="credit">Earth textures © three-globe (демо-набор)</div>
@@ -441,6 +465,32 @@ const PRELOAD_ALTITUDE = CROSSFADE.altThreshold + 0.15; // начинаем по
 
 const sceneWrapper = document.getElementById('globe-scene');
 const leafletDiv = document.getElementById('leafletMap');
+
+// ── Подсказка "прокрутите колёсиком, чтобы приблизиться" — только при первом визите ──
+// Многие новые посетители не понимают, что глобус можно приблизить скроллом, и не видят
+// аватарки мечтателей, оставаясь на дальнем плане. Показываем ненавязчивую подсказку один раз
+// на устройство (localStorage), прячем при первом скролле/тапе или через 6 секунд.
+(function initZoomHint() {
+  const STORAGE_KEY = 'dg_zoom_hint_seen';
+  const hint = document.getElementById('zoom-hint');
+  if (!hint || localStorage.getItem(STORAGE_KEY)) return;
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    hint.classList.remove('visible');
+    hint.classList.add('fading');
+    localStorage.setItem(STORAGE_KEY, '1');
+  };
+
+  setTimeout(() => hint.classList.add('visible'), 600);
+  setTimeout(dismiss, 6600);
+  const stageEl = document.getElementById('stage');
+  ['wheel', 'touchstart', 'pointerdown'].forEach(evt =>
+    stageEl.addEventListener(evt, dismiss, { passive: true, once: true })
+  );
+})();
 
 let sceneMode = 'globe';
 let map = null;
@@ -585,9 +635,10 @@ const AVATAR_ZOOM_THRESHOLD = 8; // 2D map only — at/above this zoom level, do
 function dreamAvatarIcon(d) {
   const color = TIER_COLOR[d.tier] || TIER_COLOR.basic;
   const safeUrl = d.avatarUrl.replace(/'/g, "%27");
+  const safeTitle = (d.title || 'Мечта').replace(/"/g, '&quot;');
   return L.divIcon({
     className: 'dream-avatar-marker',
-    html: `<div class="dam-inner" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
+    html: `<div class="dam-inner" role="img" aria-label="${safeTitle}" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   });
@@ -613,7 +664,15 @@ function renderDreamMarkers() {
         });
     marker._dreamId = d.dreamId;
     marker.bindTooltip(d.title || 'Мечта', { direction: 'top' });
-    marker.on('click', () => window.open(`/dream/${d.dreamId}`, '_blank'));
+    // Раньше клик сразу открывал страницу мечты в новой вкладке — при просмотре нескольких
+    // мечт подряд это копило вкладки и раздражало на мобильных. Теперь показываем компактное
+    // превью прямо над картой; полная страница открывается по отдельной ссылке внутри превью.
+    const photoHtml = d.avatarUrl ? `<img class="dream-popup-photo" src="${d.avatarUrl}" alt="">` : '';
+    marker.bindPopup(
+      `${photoHtml}<div class="dream-popup-title">${(d.title || 'Мечта').replace(/</g, '&lt;')}</div>` +
+      `<a class="dream-popup-link" href="/dream/${d.dreamId}" target="_blank">Открыть страницу мечты →</a>`,
+      { closeButton: true, className: 'dream-popup' }
+    );
     marker.addTo(dreamMarkersLayer);
   }
   // Если пришли по ссылке "View my dream on the map" — открываем подсказку над нужной меткой,
