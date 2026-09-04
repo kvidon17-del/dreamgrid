@@ -386,9 +386,9 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
       <a href="/explore" class="btn-hero-secondary">🌐 Explore the Grid</a>
     </div>
     <div class="stats-bar">
-      <div class="stat-item"><div class="stat-icon-wrap purple">👥</div><div><div class="stat-label">Thousands</div><div class="stat-sub">of dreamers</div></div></div>
-      <div class="stat-item"><div class="stat-icon-wrap blue">🌐</div><div><div class="stat-label">40+</div><div class="stat-sub">countries</div></div></div>
-      <div class="stat-item"><div class="stat-icon-wrap pink">🤍</div><div><div class="stat-label">Countless</div><div class="stat-sub">dreams shared</div></div></div>
+      <div class="stat-item"><div class="stat-icon-wrap purple">👥</div><div><div class="stat-label" id="stat-dreamers">–</div><div class="stat-sub">dreamers</div></div></div>
+      <div class="stat-item"><div class="stat-icon-wrap blue">💭</div><div><div class="stat-label" id="stat-dreams">–</div><div class="stat-sub">dreams shared</div></div></div>
+      <div class="stat-item"><div class="stat-icon-wrap pink">🤍</div><div><div class="stat-label" id="stat-likes">–</div><div class="stat-sub">likes given</div></div></div>
     </div>
   </div>
 </section>
@@ -692,8 +692,20 @@ function draftSignInInstead() {
   openModal('signin');
 }
 
+// ── Live homepage stats (was hardcoded fake text: "Thousands", "40+ countries", "Countless") ──
+async function loadHomeStats() {
+  const { data, error } = await sb.from('dreams').select('user_id, likes_count').eq('status', 'active');
+  if (error || !data) return;
+  const dreamerCount = new Set(data.map(d => d.user_id)).size;
+  const totalLikes = data.reduce((a, d) => a + (d.likes_count || 0), 0);
+  document.getElementById('stat-dreamers').textContent = dreamerCount;
+  document.getElementById('stat-dreams').textContent = data.length;
+  document.getElementById('stat-likes').textContent = totalLikes;
+}
+loadHomeStats();
+
 // ── Featured Dreams ──
-const FEATURED_TIER_LABEL = { premium: '⭐ Dream of the Year', vip: '👑 Dream Legend' };
+const FEATURED_TIER_LABEL = { premium: '⭐ Dream of the Year', vip: '👑 Dream Legend', free: '✦ Recently shared', basic: '✦ Recently shared', standard: '✦ Recently shared' };
 async function loadFeaturedDreams() {
   const grid = document.getElementById('featured-grid');
   const { data, error } = await sb.from('dreams')
@@ -703,21 +715,32 @@ async function loadFeaturedDreams() {
     .order('created_at', { ascending: false })
     .limit(30);
 
-  const featured = (data || [])
+  let featured = (data || [])
     .filter(d => d.cells && ['premium', 'vip'].includes(d.cells.tier))
     .sort((a, b) => (a.cells.tier === b.cells.tier ? 0 : a.cells.tier === 'vip' ? -1 : 1))
     .slice(0, 6);
 
+  // Пока нет ни одной Premium/VIP мечты — показываем последние настоящие мечты
+  // любого тарифа, чтобы главная страница не выглядела пустой на раннем этапе.
+  if (!error && !featured.length) {
+    const { data: recent } = await sb.from('dreams')
+      .select('id,title,photo_url,created_at,cells!inner(tier)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(6);
+    featured = recent || [];
+  }
+
   if (error || !featured.length) {
-    grid.innerHTML = '<div class="featured-empty">Be the first Premium or VIP dream featured here ✦</div>';
+    grid.innerHTML = '<div class="featured-empty">Be the first dream featured here ✦</div>';
     return;
   }
 
   grid.innerHTML = featured.map(d => `
     <a class="featured-card ${d.cells.tier === 'vip' ? 'vip' : ''}" href="/dream/${d.id}">
-      ${d.photo_url ? `<img class="featured-photo" src="${d.photo_url}" alt="${d.title}">` : `<div class="featured-photo">${d.cells.tier === 'vip' ? '👑' : '⭐'}</div>`}
+      ${d.photo_url ? `<img class="featured-photo" src="${d.photo_url}" alt="${d.title}">` : `<div class="featured-photo">${d.cells.tier === 'vip' ? '👑' : d.cells.tier === 'premium' ? '⭐' : '✦'}</div>`}
       <div class="featured-body">
-        <div class="featured-tier">${FEATURED_TIER_LABEL[d.cells.tier]}</div>
+        <div class="featured-tier">${FEATURED_TIER_LABEL[d.cells.tier] || '✦ Recently shared'}</div>
         <div class="featured-title">${d.title}</div>
       </div>
     </a>
