@@ -466,14 +466,13 @@ const PRELOAD_ALTITUDE = CROSSFADE.altThreshold + 0.15; // начинаем по
 const sceneWrapper = document.getElementById('globe-scene');
 const leafletDiv = document.getElementById('leafletMap');
 
-// ── Подсказка "прокрутите колёсиком, чтобы приблизиться" — только при первом визите ──
-// Многие новые посетители не понимают, что глобус можно приблизить скроллом, и не видят
-// аватарки мечтателей, оставаясь на дальнем плане. Показываем ненавязчивую подсказку один раз
-// на устройство (localStorage), прячем при первом скролле/тапе или через 6 секунд.
+// ── Подсказка "прокрутите колёсиком, чтобы приблизиться" — при каждом визите ──
+// Многие посетители не понимают, что глобус можно приблизить скроллом, и не видят
+// аватарки мечтателей, оставаясь на дальнем плане. Показываем ненавязчивую подсказку
+// каждый раз при заходе на страницу, прячем при первом скролле/тапе или через 6 секунд.
 (function initZoomHint() {
-  const STORAGE_KEY = 'dg_zoom_hint_seen';
   const hint = document.getElementById('zoom-hint');
-  if (!hint || localStorage.getItem(STORAGE_KEY)) return;
+  if (!hint) return;
 
   let dismissed = false;
   const dismiss = () => {
@@ -481,7 +480,6 @@ const leafletDiv = document.getElementById('leafletMap');
     dismissed = true;
     hint.classList.remove('visible');
     hint.classList.add('fading');
-    localStorage.setItem(STORAGE_KEY, '1');
   };
 
   setTimeout(() => hint.classList.add('visible'), 600);
