@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /reset-password
+Disallow: /api/
+
+Sitemap: https://www.dreamgrid.ink/sitemap.xml

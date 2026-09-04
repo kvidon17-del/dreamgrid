@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Page Not Found — Dream Grid</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #070918; --bg2: #0c0f24;
+    --border: rgba(255,255,255,0.08);
+    --text: #ffffff; --muted: rgba(255,255,255,0.5);
+    --grad-title: linear-gradient(135deg,#e0d7ff 0%,#c4b5fd 20%,#f9a8d4 55%,#fcd34d 80%,#fde68a 100%);
+    --grad-btn: linear-gradient(135deg,#6d4df0,#9333ea);
+    --radius-sm: 10px; --radius: 16px;
+  }
+  body {
+    font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; position: relative; overflow: hidden;
+  }
+  body::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 20%, rgba(124,92,246,0.18), transparent 70%),
+                radial-gradient(ellipse 50% 40% at 80% 80%, rgba(244,114,182,0.10), transparent 70%);
+    pointer-events: none;
+  }
+  .wrap { position: relative; z-index: 1; max-width: 460px; }
+  .glyph { font-size: 56px; margin-bottom: 8px; opacity: 0.9; }
+  .code {
+    font-family: 'Sora', sans-serif; font-weight: 900; font-size: 84px; line-height: 1;
+    background: var(--grad-title); -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 12px;
+  }
+  h1 { font-family: 'Sora', sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+  p { color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
+  .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary, .btn-secondary {
+    padding: 13px 26px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600;
+    text-decoration: none; display: inline-block; transition: opacity 0.2s, background 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .btn-primary { background: var(--grad-btn); color: #fff; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-secondary { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--border); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="glyph">🌌</div>
+    <div class="code">404</div>
+    <h1>This dream drifted off the map</h1>
+    <p>The page you're looking for doesn't exist — maybe it moved, or maybe it was never here at all.</p>
+    <div class="btns">
+      <a href="/" class="btn-primary">✦ Back to Home</a>
+      <a href="/explore" class="btn-secondary">🌐 Explore the Grid</a>
+    </div>
+  </div>
+</body>
+</html>
