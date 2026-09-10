@@ -1742,12 +1742,17 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   if (selectedLat === null) { showToast('No location selected. Please go back and pick a spot.', 'error'); return; }
   const cellNum = Math.floor(Math.random() * 10000) + 1;
 
+  const isTestPayment = typeof paymentId === 'string' && paymentId.startsWith('TEST_');
+  const cancelToken = crypto.randomUUID();
+
   const { data: cell, error: cellError } = await sb.from('cells').insert({
     cell_number: cellNum, user_id: currentUser.id,
     status: 'active', tier: selectedTier,
     price: selectedPrice, purchased_at: new Date().toISOString(),
     lat: selectedLat, lng: selectedLng,
-    immediate_start_requested_at: selectedTier === 'free' ? null : new Date().toISOString(), // требует переименованную колонку immediate_start_requested_at (timestamptz, nullable) в таблице cells — НЕ означает отказ от права отказа
+    immediate_start_requested_at: selectedTier === 'free' ? null : new Date().toISOString(), // требует колонку immediate_start_requested_at (timestamptz, nullable) в cells — НЕ означает отказ от права отказа
+    paypal_order_id: (selectedTier !== 'free' && !isTestPayment) ? paymentId : null, // требует колонку paypal_order_id (text, nullable) в cells
+    cancel_token: selectedTier === 'free' ? null : cancelToken, // требует колонку cancel_token (text, nullable) в cells
   }).select().single();
 
   if (cellError) { showToast('Error saving. Contact support.', 'error'); return; }
@@ -1769,7 +1774,6 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   // per the legal review; withdrawal within 14 days must still be honoured
   // with a refund). Skipped for the free tier (no payment involved) and for
   // test-mode dreams created via the "🧪 Test without payment" button.
-  const isTestPayment = typeof paymentId === 'string' && paymentId.startsWith('TEST_');
   if (selectedTier !== 'free' && !isTestPayment && currentUser.email) {
     fetch('/api/send-purchase-confirmation', {
       method: 'POST',
@@ -1781,6 +1785,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
         price: selectedPrice,
         immediateStartRequestedAt: cell.immediate_start_requested_at,
         dreamUrl: `${window.location.origin}/dream/${dream.id}`,
+        cancelUrl: `${window.location.origin}/cancel?cell=${cell.id}&token=${cancelToken}`,
       }),
     }).catch(err => console.error('Failed to send purchase confirmation email:', err));
     // Fire-and-forget: a slow or failed email must never block the buyer's
