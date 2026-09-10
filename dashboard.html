@@ -630,7 +630,7 @@
         </div>
         <div class="withdrawal-consent-row">
           <input type="checkbox" id="withdrawal-consent-check" onchange="onWithdrawalConsentChange()">
-          <label for="withdrawal-consent-check">I understand that my dream page will be published immediately after payment. I expressly request immediate delivery of this digital content, and I acknowledge that by consenting to this, I lose my statutory 14-day right of withdrawal (in accordance with Art. 16(m) of the EU Consumer Rights Directive).</label>
+          <label for="withdrawal-consent-check">I would like my dream page to be published immediately after payment. I understand that I keep my statutory 14-day right of withdrawal, and that if I withdraw in time, my payment will be refunded and this spot will be removed or reset to the free tier.</label>
         </div>
         <div class="paypal-gate-wrap">
           <div id="paypal-button-container"></div>
@@ -1747,7 +1747,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
     status: 'active', tier: selectedTier,
     price: selectedPrice, purchased_at: new Date().toISOString(),
     lat: selectedLat, lng: selectedLng,
-    withdrawal_waiver_at: selectedTier === 'free' ? null : new Date().toISOString(), // требует колонку withdrawal_waiver_at (timestamptz, nullable) в таблице cells
+    immediate_start_requested_at: selectedTier === 'free' ? null : new Date().toISOString(), // требует переименованную колонку immediate_start_requested_at (timestamptz, nullable) в таблице cells — НЕ означает отказ от права отказа
   }).select().single();
 
   if (cellError) { showToast('Error saving. Contact support.', 'error'); return; }
@@ -1763,11 +1763,12 @@ async function saveDream(paymentId, redirectToSuccess = false) {
   createdDreamId = dream.id;
   localStorage.setItem('last_dream_id', dream.id);
 
-  // Send the withdrawal-right / payment confirmation email (durable medium,
-  // required under Art. 16(m) Directive 2011/83/EU & Art. 6:230p(f) BW).
-  // Skipped for the free tier (no payment involved) and for test-mode dreams
-  // created via the "🧪 Test without payment" button — no real payment was
-  // made, so a "payment confirmation" email would be inaccurate.
+  // Send the payment confirmation email (durable medium record of the
+  // purchase and, where applicable, of the consumer's request to begin
+  // immediate delivery — this does NOT waive the 14-day right of withdrawal,
+  // per the legal review; withdrawal within 14 days must still be honoured
+  // with a refund). Skipped for the free tier (no payment involved) and for
+  // test-mode dreams created via the "🧪 Test without payment" button.
   const isTestPayment = typeof paymentId === 'string' && paymentId.startsWith('TEST_');
   if (selectedTier !== 'free' && !isTestPayment && currentUser.email) {
     fetch('/api/send-purchase-confirmation', {
@@ -1778,7 +1779,7 @@ async function saveDream(paymentId, redirectToSuccess = false) {
         dreamTitle: title,
         tierLabel: selectedTier.toUpperCase(),
         price: selectedPrice,
-        consentDatetime: cell.withdrawal_waiver_at,
+        immediateStartRequestedAt: cell.immediate_start_requested_at,
         dreamUrl: `${window.location.origin}/dream/${dream.id}`,
       }),
     }).catch(err => console.error('Failed to send purchase confirmation email:', err));
