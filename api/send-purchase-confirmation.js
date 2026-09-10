@@ -1,10 +1,10 @@
 // /api/send-purchase-confirmation.js — Vercel Serverless Function
 //
-// Отправляет письмо-подтверждение покупки + отказа от 14-дневного права на
-// возврат (withdrawal right) через Resend, сразу после успешной оплаты.
-// Это то самое письмо на "durable medium", требуемое Art. 16(m) Directive
-// 2011/83/EU и Art. 6:230p(f) Dutch Civil Code — см. withdrawal-confirmation-
-// email-template.html для контекста и юридического обоснования.
+// Отправляет письмо-подтверждение покупки через Resend сразу после успешной
+// оплаты. Покупатель СОХРАНЯЕТ статутное 14-дневное право отказа (Art. 16(m)
+// Directive 2011/83/EU / Art. 6:230p(f) BW) — письмо это подтверждает, а не
+// отменяет. Если покупатель заранее попросил немедленную публикацию, это
+// письмо фиксирует момент такого запроса как durable-medium запись.
 //
 // ВАЖНО: использует ту же переменную окружения RESEND_API_KEY в Vercel,
 // что уже настроена для /api/contact.js.
@@ -15,9 +15,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const { userEmail, dreamTitle, tierLabel, price, consentDatetime, dreamUrl } = req.body || {};
+  const { userEmail, dreamTitle, tierLabel, price, immediateStartRequestedAt, dreamUrl } = req.body || {};
 
-  if (!userEmail || !dreamTitle || !tierLabel || price === undefined || !consentDatetime || !dreamUrl) {
+  if (!userEmail || !dreamTitle || !tierLabel || price === undefined || !dreamUrl) {
     return res.status(400).json({ ok: false, error: 'Missing required fields.' });
   }
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,18 +31,22 @@ export default async function handler(req, res) {
     }[c]));
 
   // Human-readable date for the email body (server-side, so it's consistent
-  // regardless of the buyer's browser locale/timezone settings)
-  const consentDate = new Date(consentDatetime);
-  const consentDatetimeLabel = isNaN(consentDate.getTime())
-    ? escapeHtml(consentDatetime)
-    : consentDate.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
+  // regardless of the buyer's browser locale/timezone settings). May be absent
+  // if the buyer did not request immediate publication.
+  let immediateStartLabel = null;
+  if (immediateStartRequestedAt) {
+    const requestedDate = new Date(immediateStartRequestedAt);
+    immediateStartLabel = isNaN(requestedDate.getTime())
+      ? escapeHtml(immediateStartRequestedAt)
+      : requestedDate.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
+  }
 
   const html = `
 <!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Dream Grid — Payment confirmation & withdrawal notice</title>
+<title>Dream Grid — Payment confirmation & right of withdrawal</title>
 </head>
 <body style="margin:0;padding:0;background:#070918;font-family:Arial,Helvetica,sans-serif;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#070918;padding:32px 0;">
@@ -70,29 +74,31 @@ export default async function handler(req, res) {
   </td></tr>
 
   <tr><td style="padding:0 32px 8px;">
-    <h2 style="font-size:15px;color:#ffffff;margin:0 0 8px;">Important — your right of withdrawal</h2>
+    <h2 style="font-size:15px;color:#ffffff;margin:0 0 8px;">Your right of withdrawal</h2>
     <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0 0 10px;">
-      Your dream page is digital content, published immediately rather than delivered on a physical
-      medium. On ${consentDatetimeLabel}, before completing payment, you confirmed that:
+      As an EU consumer, you have the right to withdraw from this purchase within
+      <strong>14 days</strong>, without giving any reason. If you withdraw in time, we will refund
+      your payment and remove this spot (or reset it to the free tier).
     </p>
-    <ul style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.8;margin:0 0 10px;padding-left:20px;">
-      <li>you requested immediate delivery of this digital content, understanding your dream page
-          would be published as soon as payment was confirmed; and</li>
-      <li>you acknowledged that, by giving this consent, you lose your statutory 14-day right of
-          withdrawal (herroepingsrecht) for this purchase.</li>
-    </ul>
+    ${immediateStartLabel ? `
+    <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0 0 10px;">
+      On ${immediateStartLabel}, before completing payment, you asked us to publish your dream page
+      immediately rather than waiting for the withdrawal period to pass. This does not affect your
+      right of withdrawal — you may still withdraw within 14 days and receive a refund, even though
+      your dream page has already been published.
+    </p>` : ''}
     <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0;">
-      This is in accordance with Article 16(m) of Directive 2011/83/EU on consumer rights and
-      Article 6:230p(f) of the Dutch Civil Code (Burgerlijk Wetboek). Please keep this email for
-      your records.
+      This is in accordance with Article 16 of Directive 2011/83/EU on consumer rights and Article
+      6:230o–6:230p of the Dutch Civil Code (Burgerlijk Wetboek). Please keep this email for your
+      records.
     </p>
   </td></tr>
 
   <tr><td style="padding:24px 32px 8px;">
     <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7;margin:0;">
-      If your dream was not successfully published due to a technical error, you may request a
-      full refund within 14 days by contacting
-      <a href="mailto:hello@dreamgrid.ink" style="color:#a78bfa;">hello@dreamgrid.ink</a>.
+      To withdraw and request a refund, contact us within 14 days at
+      <a href="mailto:hello@dreamgrid.ink" style="color:#a78bfa;">hello@dreamgrid.ink</a>. We will
+      confirm receipt of your request without delay.
     </p>
   </td></tr>
 
@@ -125,7 +131,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: 'Dream Grid <noreply@dreamgrid.ink>',
         to: [userEmail],
-        subject: 'Your dream is live — payment confirmation & withdrawal notice',
+        subject: 'Your dream is live — payment confirmation & your right of withdrawal',
         html,
       }),
     });
@@ -133,9 +139,6 @@ export default async function handler(req, res) {
     if (!resendRes.ok) {
       const errText = await resendRes.text();
       console.error('Resend error (purchase confirmation):', errText);
-      // Return 200 anyway — a failed confirmation email should not block the
-      // buyer's flow or make the purchase itself look like it failed. Failures
-      // are logged server-side (Vercel logs) so they can be investigated.
       return res.status(200).json({ ok: false, error: 'Email failed to send, but was logged.' });
     }
 
