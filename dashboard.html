@@ -1968,20 +1968,35 @@ async function openSimilarDreamsModal(dreamId) {
     return;
   }
 
+  // Ранжируем совпадения по релевантности: совпадение категории весит больше,
+  // чем каждое отдельное совпавшее слово в заголовке/описании.
+  const rankedMatches = rankSimilarMatches(matches, dream, keywords);
+
   // Подтягиваем профили мечтателей отдельным запросом — тот же паттерн, что и на explore.html
-  const userIds = [...new Set(matches.map(m => m.user_id))];
+  const userIds = [...new Set(rankedMatches.map(m => m.user_id))];
   const { data: profiles } = await sb.from('profiles').select('id, nickname, avatar_url').in('id', userIds);
   const profileByUser = Object.fromEntries((profiles || []).map(p => [p.id, p]));
 
-  renderSimilarDreams(matches, profileByUser);
-  renderSimilarMapCta(dreamId, matches);
+  renderSimilarDreams(rankedMatches, profileByUser);
+  renderSimilarMapCta(rankedMatches);
 }
 
-function renderSimilarMapCta(originDreamId, matches) {
+function rankSimilarMatches(matches, dream, keywords) {
+  return matches.map(m => {
+    let score = 0;
+    if (dream.category && m.category === dream.category) score += 3;
+    const haystack = `${m.title || ''} ${m.description || ''}`.toLowerCase();
+    keywords.forEach(w => { if (haystack.includes(w)) score += 1; });
+    return { ...m, _score: score };
+  }).sort((a, b) => b._score - a._score);
+}
+
+function renderSimilarMapCta(matches) {
   const cta = document.getElementById('similar-map-cta');
   if (!matches.length) { cta.style.display = 'none'; return; }
-  const similarIds = matches.map(m => m.id).join(',');
-  const url = `https://www.dreamgrid.ink/explore?dream=${originDreamId}&similar=${similarIds}`;
+  const bestMatch = matches[0]; // самая похожая чужая мечта — на неё и летит камера
+  const allIds = matches.map(m => m.id).join(',');
+  const url = `https://www.dreamgrid.ink/explore?dream=${bestMatch.id}&similar=${allIds}`;
   cta.innerHTML = `<a class="btn-action purple" href="${url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;width:100%;justify-content:center;">🌍 View all on map</a>`;
   cta.style.display = 'block';
 }
