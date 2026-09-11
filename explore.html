@@ -168,6 +168,7 @@
     cursor: pointer; transition: transform 0.15s;
   }
   .dam-inner:hover { transform: scale(1.12); }
+  .dam-inner.dam-similar { box-shadow: 0 0 0 3px #22d3ee, 0 0 16px 4px rgba(34,211,238,0.7); }
   .filters-bar {
     padding: 24px 48px;
     display: flex; align-items: center; gap: 12px;
@@ -339,6 +340,9 @@
   <div class="hero-text">
     <h1>Explore <span>Grid</span> 🌍</h1>
     <p>Discover what people around the world are dreaming of</p>
+    <div id="similar-banner" style="display:none;margin:14px auto 0;max-width:520px;padding:10px 18px;border-radius:20px;border:1px solid rgba(34,211,238,0.4);background:rgba(34,211,238,0.08);color:#22d3ee;font-size:13px;font-weight:600;">
+      🔍 Glowing dots show dreams similar to yours
+    </div>
     <div class="stats-mini">
       <div class="stat-mini">🌟 <strong id="total-dreams">—</strong> dreams shared</div>
       <div class="stat-mini">✓ <strong id="total-fulfilled">—</strong> dreams fulfilled</div>
@@ -389,6 +393,7 @@ const PALETTE = {
   capital: '#aef9ff',
   atmosphere: '#7c5cf6',
   border: 'rgba(196, 165, 253, 0.6)',
+  similarHighlight: '#22d3ee',
 };
 const TIER_COLOR = { free: PALETTE.tierFree, basic: PALETTE.tierBasic, standard: PALETTE.tierStandard, premium: PALETTE.tierPremium, vip: PALETTE.tierVip };
 const TIER_RADIUS = { free: 0.20, basic: 0.30, standard: 0.42, premium: 0.52, vip: 0.66 };
@@ -406,24 +411,24 @@ const globe = new Globe(document.getElementById('globeViz'))
   .pointColor(d => {
     if (d.kind === 'land') return d.bright ? PALETTE.landDustBright : PALETTE.landDustBase;
     if (d.kind === 'capital') return PALETTE.capital;
-    if (d.kind === 'dream') return TIER_COLOR[d.tier] || TIER_COLOR.basic;
+    if (d.kind === 'dream') return d.isSimilar ? PALETTE.similarHighlight : (TIER_COLOR[d.tier] || TIER_COLOR.basic);
     return PALETTE.tierBasic;
   })
   .pointAltitude(d => {
     if (d.kind === 'land') return 0.0005;
     if (d.kind === 'capital') return 0.014;
-    if (d.kind === 'dream') return 0.018;
+    if (d.kind === 'dream') return d.isSimilar ? 0.032 : 0.018;
     return 0.008;
   })
   .pointRadius(d => {
     if (d.kind === 'land') return d.bright ? 0.075 : 0.04;
     if (d.kind === 'capital') return 0.68;
-    if (d.kind === 'dream') return (TIER_RADIUS[d.tier] || TIER_RADIUS.basic) * dreamCountScale;
+    if (d.kind === 'dream') return (TIER_RADIUS[d.tier] || TIER_RADIUS.basic) * dreamCountScale * (d.isSimilar ? 1.7 : 1);
     return 0.3;
   })
   .pointResolution(d => d.kind === 'land' ? 3 : 12)
   .pointsMerge(true)
-  .pointLabel(d => d.kind === 'dream' ? (d.title || 'Мечта') : '')
+  .pointLabel(d => d.kind === 'dream' ? (d.isSimilar ? `🔍 ${d.title || 'Мечта'}` : (d.title || 'Мечта')) : '')
   .onPointClick(d => {
     if (d.kind === 'dream' && d.dreamId) window.open(`/dream/${d.dreamId}`, '_blank');
   })
@@ -631,12 +636,12 @@ const TIER_MAP_RADIUS_PX = { free: 4, basic: 5, standard: 6, premium: 7, vip: 9 
 const AVATAR_ZOOM_THRESHOLD = 8; // 2D map only — at/above this zoom level, dots become dreamer photo thumbnails
 
 function dreamAvatarIcon(d) {
-  const color = TIER_COLOR[d.tier] || TIER_COLOR.basic;
+  const color = d.isSimilar ? PALETTE.similarHighlight : (TIER_COLOR[d.tier] || TIER_COLOR.basic);
   const safeUrl = d.avatarUrl.replace(/'/g, "%27");
   const safeTitle = (d.title || 'Мечта').replace(/"/g, '&quot;');
   return L.divIcon({
     className: 'dream-avatar-marker',
-    html: `<div class="dam-inner" role="img" aria-label="${safeTitle}" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
+    html: `<div class="dam-inner${d.isSimilar ? ' dam-similar' : ''}" role="img" aria-label="${safeTitle}" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   });
@@ -653,11 +658,11 @@ function renderDreamMarkers() {
     const marker = (useAvatars && d.avatarUrl)
       ? L.marker([d.lat, d.lng], { icon: dreamAvatarIcon(d) })
       : L.circleMarker([d.lat, d.lng], {
-          radius: TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic,
-          color: TIER_COLOR[d.tier] || TIER_COLOR.basic,
-          fillColor: TIER_COLOR[d.tier] || TIER_COLOR.basic,
+          radius: (TIER_MAP_RADIUS_PX[d.tier] || TIER_MAP_RADIUS_PX.basic) * (d.isSimilar ? 1.6 : 1),
+          color: d.isSimilar ? PALETTE.similarHighlight : (TIER_COLOR[d.tier] || TIER_COLOR.basic),
+          fillColor: d.isSimilar ? PALETTE.similarHighlight : (TIER_COLOR[d.tier] || TIER_COLOR.basic),
           fillOpacity: 0.9,
-          weight: 2,
+          weight: d.isSimilar ? 3 : 2,
           opacity: 1,
         });
     marker._dreamId = d.dreamId;
@@ -686,6 +691,15 @@ function renderDreamMarkers() {
 // В отличие от обычного скролл-кроссфейда (crossfadeToMap), сразу прыгаем на 2D-карту
 // с приближением до уровня аватарок (AVATAR_ZOOM_THRESHOLD), без анимации облёта глобуса.
 const focusDreamId = new URLSearchParams(window.location.search).get('dream');
+const similarDreamIds = new Set(
+  (new URLSearchParams(window.location.search).get('similar') || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+);
+if (similarDreamIds.size > 0) {
+  document.getElementById('similar-banner').style.display = 'block';
+}
 async function focusOnDream(target) {
   sceneMode = 'map';
   globe.controls().enabled = false;
@@ -708,7 +722,7 @@ async function loadRealDreams() {
   const rows = (data || []).map(cell => {
     const dream = Array.isArray(cell.dreams) ? cell.dreams[0] : cell.dreams;
     if (!dream) return null;
-    return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title, userId: cell.user_id, dreamPhotoUrl: dream.photo_url || null };
+    return { lat: cell.lat, lng: cell.lng, tier: cell.tier, kind: 'dream', dreamId: dream.id, title: dream.title, userId: cell.user_id, dreamPhotoUrl: dream.photo_url || null, isSimilar: similarDreamIds.has(dream.id) };
   }).filter(Boolean);
 
   // Подтягиваем аватарки авторов мечт отдельным запросом (проще и надёжнее, чем встроенный join

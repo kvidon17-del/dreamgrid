@@ -794,6 +794,7 @@
     <button class="modal-close" onclick="closeSimilarDreamsModal()">✕</button>
     <div class="modal-title">🔍 Similar Dreams</div>
     <div class="modal-sub" id="similar-modal-sub">People who dream something similar.</div>
+    <div id="similar-map-cta" style="display:none;margin-bottom:14px;"></div>
     <div id="similar-dreams-loading" style="padding:30px 0;text-align:center;color:var(--muted);font-size:14px;">Looking for similar dreams…</div>
     <div id="similar-dreams-list" style="display:none;"></div>
     <div id="similar-dreams-empty" style="display:none;padding:30px 0;text-align:center;">
@@ -1937,6 +1938,7 @@ async function openSimilarDreamsModal(dreamId) {
   document.getElementById('similar-dreams-list').style.display = 'none';
   document.getElementById('similar-dreams-list').innerHTML = '';
   document.getElementById('similar-dreams-empty').style.display = 'none';
+  document.getElementById('similar-map-cta').style.display = 'none';
   document.getElementById('similar-modal-sub').textContent = `Other dreamers with a dream like "${dream.title}"`;
 
   const keywords = extractSimilarKeywords(`${dream.title} ${dream.description || ''}`);
@@ -1972,6 +1974,16 @@ async function openSimilarDreamsModal(dreamId) {
   const profileByUser = Object.fromEntries((profiles || []).map(p => [p.id, p]));
 
   renderSimilarDreams(matches, profileByUser);
+  renderSimilarMapCta(dreamId, matches);
+}
+
+function renderSimilarMapCta(originDreamId, matches) {
+  const cta = document.getElementById('similar-map-cta');
+  if (!matches.length) { cta.style.display = 'none'; return; }
+  const similarIds = matches.map(m => m.id).join(',');
+  const url = `https://www.dreamgrid.ink/explore?dream=${originDreamId}&similar=${similarIds}`;
+  cta.innerHTML = `<a class="btn-action purple" href="${url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;width:100%;justify-content:center;">🌍 View all on map</a>`;
+  cta.style.display = 'block';
 }
 
 function renderSimilarDreams(matches, profileByUser) {
