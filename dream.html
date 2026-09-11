@@ -617,15 +617,18 @@ async function init() {
 function getEmbedUrl(url) {
   try {
     const u = new URL(url);
+    // Используем youtube-nocookie.com (Privacy-Enhanced Mode) — YouTube не
+    // устанавливает cookies до того, как пользователь начнёт взаимодействие
+    // с плеером. Обычный youtube.com/embed ставит cookies сразу при загрузке.
     if (u.hostname.includes('youtube.com')) {
       const id = u.searchParams.get('v');
-      if (id) return `https://www.youtube.com/embed/${id}`;
+      if (id) return `https://www.youtube-nocookie.com/embed/${id}`;
       const m = u.pathname.match(/\/(shorts|embed)\/([^/?]+)/);
-      if (m) return `https://www.youtube.com/embed/${m[2]}`;
+      if (m) return `https://www.youtube-nocookie.com/embed/${m[2]}`;
     }
     if (u.hostname.includes('youtu.be')) {
       const id = u.pathname.slice(1);
-      if (id) return `https://www.youtube.com/embed/${id}`;
+      if (id) return `https://www.youtube-nocookie.com/embed/${id}`;
     }
     if (u.hostname.includes('vimeo.com')) {
       const id = u.pathname.split('/').filter(Boolean)[0];
