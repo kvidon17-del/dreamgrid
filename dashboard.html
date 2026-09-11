@@ -103,6 +103,15 @@
   .dream-photo { width: 100%; max-height: 200px; object-fit: cover; border-radius: var(--radius); margin-bottom: 16px; }
   .dream-tags { display: flex; gap: 10px; flex-wrap: wrap; }
   .dream-tag { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+
+  /* SIMILAR DREAMS */
+  .similar-dream-item { display: flex; gap: 14px; align-items: center; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; text-decoration: none; transition: border-color 0.2s, background 0.2s; }
+  .similar-dream-item:hover { border-color: rgba(167,139,250,0.4); background: rgba(255,255,255,0.03); }
+  .similar-dream-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .similar-dream-body { flex: 1; min-width: 0; }
+  .similar-dream-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .similar-dream-meta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .similar-dream-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(167,139,250,0.15); color: #a78bfa; }
   .tag-active { background: rgba(99,60,220,0.2); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
   .tag-tier { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
   .dream-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
@@ -773,6 +782,22 @@
   </div>
 </div>
 
+<!-- SIMILAR DREAMS MODAL -->
+<div class="modal-overlay" id="similar-dreams-modal" onclick="closeSimilarModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeSimilarDreamsModal()">✕</button>
+    <div class="modal-title">🔍 Similar Dreams</div>
+    <div class="modal-sub" id="similar-modal-sub">People who dream something similar.</div>
+    <div id="similar-dreams-loading" style="padding:30px 0;text-align:center;color:var(--muted);font-size:14px;">Looking for similar dreams…</div>
+    <div id="similar-dreams-list" style="display:none;"></div>
+    <div id="similar-dreams-empty" style="display:none;padding:30px 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:10px;">🌙</div>
+      <div style="color:#fff;font-weight:600;margin-bottom:6px;">No similar dreams yet</div>
+      <div style="color:var(--muted);font-size:14px;">Check back later — more dreamers are joining every day.</div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="avatar-crop-overlay">
   <div class="crop-modal">
     <h3>Adjust your photo</h3>
@@ -1034,6 +1059,7 @@ function renderAllDreams(dreams) {
             <button class="btn-action green" onclick="markFulfilled('${dream.id}')">✓ Mark Fulfilled</button>
             <button class="btn-action purple" onclick="shareDream('${dream.id}')">🔗 Share</button>
             <a class="btn-action" href="https://www.dreamgrid.ink/explore?dream=${dream.id}" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center;">🌍 View on map</a>
+            <button class="btn-action" onclick="openSimilarDreamsModal('${dream.id}')">🔍 Similar Dreams</button>
           </div>
         </div>
       </div>
@@ -1877,6 +1903,98 @@ async function markFulfilled(dreamId) {
 function shareDream(dreamId) {
   const url = `${window.location.origin}/dream/${dreamId}`;
   navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied!', 'success'));
+}
+
+// ── SIMILAR DREAMS ──
+// Простые "неважные" слова, которые не должны участвовать в поиске совпадений —
+// без них почти любые две мечты формально "совпадали" бы по слову "the" или "want".
+const SIMILAR_STOPWORDS = new Set([
+  'this','that','these','those','with','from','into','your','their','about','someday',
+  'really','would','could','should','dream','dreaming','want','wish','like','love','just',
+  'have','been','being','make','will','also','when','where','which','what','before','after',
+  'because','they','them','then','there','here','some','more','than','very','always','every'
+]);
+
+function extractSimilarKeywords(text) {
+  if (!text) return [];
+  const words = text.toLowerCase().replace(/[^a-zа-яё0-9\s]/gi, ' ').split(/\s+/).filter(Boolean);
+  const unique = [...new Set(words)].filter(w => w.length >= 4 && !SIMILAR_STOPWORDS.has(w));
+  return unique.slice(0, 6); // ограничиваем число ключевых слов, чтобы не раздувать запрос
+}
+
+async function openSimilarDreamsModal(dreamId) {
+  const dream = userDreams.find(d => d.id === dreamId);
+  if (!dream) return;
+
+  document.getElementById('similar-dreams-modal').classList.add('active');
+  document.getElementById('similar-dreams-loading').style.display = 'block';
+  document.getElementById('similar-dreams-list').style.display = 'none';
+  document.getElementById('similar-dreams-list').innerHTML = '';
+  document.getElementById('similar-dreams-empty').style.display = 'none';
+  document.getElementById('similar-modal-sub').textContent = `Other dreamers with a dream like "${dream.title}"`;
+
+  const keywords = extractSimilarKeywords(`${dream.title} ${dream.description || ''}`);
+  const orParts = [];
+  if (dream.category) orParts.push(`category.eq.${dream.category}`);
+  keywords.forEach(w => {
+    orParts.push(`title.ilike.%${w}%`);
+    orParts.push(`description.ilike.%${w}%`);
+  });
+
+  document.getElementById('similar-dreams-loading').style.display = 'none';
+
+  // Нечего искать (нет ни категории, ни значимых слов) — сразу пустое состояние
+  if (!orParts.length) {
+    document.getElementById('similar-dreams-empty').style.display = 'block';
+    return;
+  }
+
+  const { data: matches, error } = await sb.from('dreams')
+    .select('id, title, description, category, region, photo_url, user_id, status')
+    .neq('user_id', currentUser.id) // не предлагаем собственные мечты пользователя
+    .or(orParts.join(','))
+    .limit(12);
+
+  if (error || !matches || !matches.length) {
+    document.getElementById('similar-dreams-empty').style.display = 'block';
+    return;
+  }
+
+  // Подтягиваем профили мечтателей отдельным запросом — тот же паттерн, что и на explore.html
+  const userIds = [...new Set(matches.map(m => m.user_id))];
+  const { data: profiles } = await sb.from('profiles').select('id, nickname, avatar_url').in('id', userIds);
+  const profileByUser = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+
+  renderSimilarDreams(matches, profileByUser);
+}
+
+function renderSimilarDreams(matches, profileByUser) {
+  const list = document.getElementById('similar-dreams-list');
+  list.innerHTML = matches.map(m => {
+    const profile = profileByUser[m.user_id] || {};
+    const name = profile.nickname || 'Dreamer';
+    const thumb = m.photo_url
+      ? `<img class="similar-dream-thumb" src="${m.photo_url}" alt="">`
+      : `<div class="similar-dream-thumb">✦</div>`;
+    const badges = [m.category, m.region].filter(Boolean).map(b => `<span class="similar-dream-badge">${b}</span>`).join('');
+    return `
+      <a class="similar-dream-item" href="${window.location.origin}/dream/${m.id}" target="_blank" rel="noopener noreferrer">
+        ${thumb}
+        <div class="similar-dream-body">
+          <div class="similar-dream-title">${m.title}</div>
+          <div class="similar-dream-meta">by ${name} ${badges}</div>
+        </div>
+      </a>
+    `;
+  }).join('');
+  list.style.display = 'block';
+}
+
+function closeSimilarDreamsModal() {
+  document.getElementById('similar-dreams-modal').classList.remove('active');
+}
+function closeSimilarModalOutside(e) {
+  if (e.target === document.getElementById('similar-dreams-modal')) closeSimilarDreamsModal();
 }
 
 async function signOut() {
