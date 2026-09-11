@@ -548,8 +548,8 @@
       </select>
     </div>
     <div class="form-group">
-      <label>Additional details (optional)</label>
-      <textarea id="report-details" maxlength="1000" placeholder="Anything else that would help us understand..."></textarea>
+      <label>Please explain why this breaks our rules or the law</label>
+      <textarea id="report-details" maxlength="1000" placeholder="What exactly is the problem with this dream, and why do you think it shouldn't be here?" required></textarea>
     </div>
     <button class="btn-next" id="btn-send-report" onclick="sendReport()" style="background:linear-gradient(135deg,#dc2626,#f472b6);">Submit report</button>
   </div>
@@ -617,9 +617,8 @@ async function init() {
 function getEmbedUrl(url) {
   try {
     const u = new URL(url);
-    // Используем youtube-nocookie.com (Privacy-Enhanced Mode) — YouTube не
-    // устанавливает cookies до того, как пользователь начнёт взаимодействие
-    // с плеером. Обычный youtube.com/embed ставит cookies сразу при загрузке.
+    // youtube-nocookie.com (Privacy-Enhanced Mode) — не ставит cookies до
+    // взаимодействия пользователя с плеером.
     if (u.hostname.includes('youtube.com')) {
       const id = u.searchParams.get('v');
       if (id) return `https://www.youtube-nocookie.com/embed/${id}`;
@@ -944,6 +943,11 @@ async function sendReport() {
   const reason = document.getElementById('report-reason').value;
   const details = document.getElementById('report-details').value.trim();
 
+  if (!details) {
+    showToast('Please explain what\'s wrong — this helps us review it properly.');
+    return;
+  }
+
   const btn = document.getElementById('btn-send-report');
   btn.disabled = true;
   btn.textContent = 'Submitting…';
@@ -965,7 +969,7 @@ async function sendReport() {
     return;
   }
 
-  showToast('✅ Report submitted — thank you for helping keep Dream Grid safe.');
+  showToast(currentUser ? '✅ Report submitted — check your email for confirmation.' : '✅ Report submitted — thank you for helping keep Dream Grid safe.');
   closeReportModal();
 }
 
