@@ -777,21 +777,18 @@ loadFeaturedDreams();
 // если она уже есть — чтобы пример на главной вызывал больше доверия, чем условная
 // заглушка. Если связей ещё нет (или не хватает фото) — просто оставляем заглушку как есть.
 async function loadConnectDemo() {
-  const { data: rows, error: connError } = await sb.from('dream_connections')
+  const { data: rows } = await sb.from('dream_connections')
     .select('requester_dream_id, target_dream_id, requester_user_id, target_user_id')
     .eq('status', 'accepted')
     .order('responded_at', { ascending: false })
     .limit(1);
-  console.log('[connect-demo] connections query →', { rows, connError });
   const connection = (rows || [])[0];
-  if (!connection) { console.log('[connect-demo] STOP: no accepted connection found'); return; }
+  if (!connection) return;
 
   const [dreamsRes, profilesRes] = await Promise.all([
     sb.from('dreams').select('id,title,photo_url').in('id', [connection.requester_dream_id, connection.target_dream_id]),
     sb.from('profiles').select('id,nickname,avatar_url').in('id', [connection.requester_user_id, connection.target_user_id]),
   ]);
-  console.log('[connect-demo] dreams query →', dreamsRes);
-  console.log('[connect-demo] profiles query →', profilesRes);
   const dreamsById = Object.fromEntries((dreamsRes.data || []).map(d => [d.id, d]));
   const profilesById = Object.fromEntries((profilesRes.data || []).map(p => [p.id, p]));
 
@@ -799,13 +796,13 @@ async function loadConnectDemo() {
   const dreamB = dreamsById[connection.target_dream_id];
   const profileA = profilesById[connection.requester_user_id];
   const profileB = profilesById[connection.target_user_id];
-  if (!dreamA || !dreamB) { console.log('[connect-demo] STOP: dream(s) not found', { dreamA, dreamB }); return; }
+  if (!dreamA || !dreamB) return;
 
-  const avatarUrlA = profileA?.avatar_url || dreamA.photo_url;
-  const avatarUrlB = profileB?.avatar_url || dreamB.photo_url;
-  if (!avatarUrlA || !avatarUrlB) { console.log('[connect-demo] STOP: missing avatar', { avatarUrlA, avatarUrlB }); return; } // нет фото у кого-то из пары — оставляем заглушку, не показываем пустые кружки
-
-  console.log('[connect-demo] OK — applying real data', { dreamA, dreamB, profileA, profileB });
+  // Только настоящая аватарка профиля — фото самой мечты сюда никогда не подставляем
+  // (в кружочках должны быть лица мечтателей, а не фото их мечты).
+  const avatarUrlA = profileA?.avatar_url || null;
+  const avatarUrlB = profileB?.avatar_url || null;
+  if (!avatarUrlA || !avatarUrlB) return;
 
   const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
