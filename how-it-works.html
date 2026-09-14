@@ -89,7 +89,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .section-desc { text-align: center; color: var(--muted); font-size: 16px; max-width: 480px; margin: 0 auto 64px; line-height: 1.8; }
 
   /* HOW IT WORKS */
-  .how-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+  .how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; }
   .how-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 36px 28px; transition: border-color 0.3s, transform 0.3s; position: relative; overflow: hidden; }
   .how-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--grad-title); opacity: 0; transition: opacity 0.3s; }
   .how-card:hover { border-color: var(--border-hi); transform: translateY(-6px); }
@@ -239,11 +239,12 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   <div class="section-inner">
     <p class="section-eyebrow fade-up">✦ How It Works</p>
     <h2 class="section-title fade-up">Your dream, your place on the map</h2>
-    <p class="section-desc fade-up">Three steps to become part of the world's living dream archive.</p>
+    <p class="section-desc fade-up">Four steps to become part of the world's living dream archive.</p>
     <div class="how-grid">
       <div class="how-card fade-up"><div class="how-num">Step 01</div><span class="how-emoji">✨</span><h3>Choose your spot</h3><p>Search the world map or drop a pin anywhere — your real city, or the place you dream of.</p></div>
       <div class="how-card fade-up"><div class="how-num">Step 02</div><span class="how-emoji">💭</span><h3>Write your dream</h3><p>Tell the world what you dream of. Add a photo, set your intention, and hit publish.</p></div>
       <div class="how-card fade-up"><div class="how-num">Step 03</div><span class="how-emoji">🌟</span><h3>Inspire &amp; be inspired</h3><p>Your dream appears on a virtual map of the world, visible for anyone to discover. Get support from dreamers worldwide, and mark it fulfilled when it comes true.</p></div>
+      <div class="how-card fade-up"><div class="how-num">Step 04</div><span class="how-emoji">🤝</span><h3>Find your people</h3><p>After sharing your dream, Dream Grid looks for others dreaming something similar. Send a connection request, and if they accept, your dreams appear linked on the map — proof you're not dreaming alone.</p></div>
     </div>
     <p class="fade-up" style="text-align:center;margin-top:32px;"><a href="/pricing" style="color:#a78bfa;font-weight:600;text-decoration:none;font-size:15px;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">💫 See Pricing →</a></p>
   </div>

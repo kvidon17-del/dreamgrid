@@ -139,6 +139,14 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .how-emoji { font-size: 36px; margin-bottom: 18px; display: block; }
   .how-card h3 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 10px; }
   .how-card p { font-size: 14px; color: var(--muted); line-height: 1.75; }
+  .connect-demo { max-width: 420px; margin: 0 auto; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px 28px; }
+  .connect-demo-avatars { position: relative; width: 94px; height: 74px; margin: 0 auto 16px; }
+  .connect-demo-avatar { position: absolute; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .connect-demo-avatar-main { left: 0; top: 0; background: linear-gradient(135deg,#a78bfa,#7c5cf6); border: 2px solid rgba(255,255,255,0.15); z-index: 2; }
+  .connect-demo-avatar-faded { left: 30px; top: 14px; background: linear-gradient(135deg,#f472b6,#e879f9); opacity: 0.55; border: 2px solid #fb7185; z-index: 1; }
+  .connect-demo-caption { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fda4af; background: rgba(251,113,133,0.12); border: 1px solid rgba(251,113,133,0.35); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  .connect-demo-text { font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .connect-demo-text strong { color: #fff; }
 
   /* PRICING */
   .pricing-section { padding: 100px 24px; background: var(--bg2); }
@@ -389,6 +397,23 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
       <div class="stat-item"><div class="stat-icon-wrap purple">👥</div><div><div class="stat-label" id="stat-dreamers">–</div><div class="stat-sub">dreamers</div></div></div>
       <div class="stat-item"><div class="stat-icon-wrap blue">💭</div><div><div class="stat-label" id="stat-dreams">–</div><div class="stat-sub">dreams shared</div></div></div>
       <div class="stat-item"><div class="stat-icon-wrap pink">🤍</div><div><div class="stat-label" id="stat-likes">–</div><div class="stat-sub">likes given</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FIND YOUR DREAM TWIN -->
+<section class="section" id="connect-feature">
+  <div class="section-inner">
+    <p class="section-eyebrow fade-up">🤝 Not Dreaming Alone</p>
+    <h2 class="section-title fade-up">Find your dream twin</h2>
+    <p class="section-desc fade-up">Somewhere in the world, someone might be dreaming your exact dream. Dream Grid shows you who — and lets you connect.</p>
+    <div class="connect-demo fade-up">
+      <div class="connect-demo-avatars">
+        <div class="connect-demo-avatar connect-demo-avatar-main">🧗</div>
+        <div class="connect-demo-avatar connect-demo-avatar-faded">🧗</div>
+      </div>
+      <div class="connect-demo-caption">🤝 Shared Dream</div>
+      <div class="connect-demo-text"><strong>Mary</strong> and <strong>Jessica</strong> both dream of climbing Mount Everest — and found each other on Dream Grid.</div>
     </div>
   </div>
 </section>
