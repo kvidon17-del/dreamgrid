@@ -2090,13 +2090,13 @@ function renderSimilarDreams(matches, profileByUser, originDreamId, connectionSt
 async function sendConnectionRequest(originDreamId, targetDreamId, targetUserId, btnEl) {
   btnEl.disabled = true;
   btnEl.textContent = '…';
-  const { error } = await sb.from('dream_connections').insert({
+  const { data, error } = await sb.from('dream_connections').insert({
     requester_dream_id: originDreamId,
     requester_user_id: currentUser.id,
     target_dream_id: targetDreamId,
     target_user_id: targetUserId,
     status: 'pending',
-  });
+  }).select().single();
   if (error) {
     // Скорее всего запрос уже существует (pending) — просто отражаем это в UI, не показывая ошибку пользователю
     btnEl.outerHTML = '<span class="btn-connect-status">⏳ Pending</span>';
@@ -2104,6 +2104,12 @@ async function sendConnectionRequest(originDreamId, targetDreamId, targetUserId,
   }
   btnEl.outerHTML = '<span class="btn-connect-status">⏳ Pending</span>';
   showToast('🤝 Connection request sent!', 'success');
+  // Письмо получателю — не блокируем UI и не показываем ошибку пользователю, если не получится отправить
+  fetch('/api/send-connection-request-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ connectionId: data.id }),
+  }).catch(() => {});
 }
 
 function closeSimilarDreamsModal() {
