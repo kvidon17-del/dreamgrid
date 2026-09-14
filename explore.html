@@ -169,6 +169,28 @@
   }
   .dam-inner:hover { transform: scale(1.12); }
   .dam-inner.dam-similar { box-shadow: 0 0 0 3px #22d3ee, 0 0 16px 4px rgba(34,211,238,0.7); }
+  /* Составной маркер "Shared Dream" — своя аватарка чётко + аватарка напарника бледно рядом */
+  .dream-pair-wrap { position: relative; width: 70px; height: 66px; }
+  .dam-partner {
+    display: block; width: 22px; height: 22px; border-radius: 50%;
+    background-size: cover; background-position: center; background-color: rgba(255,255,255,0.08);
+    border: 2px solid #fb7185; opacity: 0.65; position: absolute; left: 20px; top: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5); cursor: pointer; transition: opacity 0.15s, transform 0.15s;
+  }
+  .dam-partner:hover { opacity: 0.95; transform: scale(1.15); }
+  .dam-partner-empty { display: flex; align-items: center; justify-content: center; color: #fb7185; font-size: 11px; text-decoration: none; }
+  .dam-partner-badge {
+    position: absolute; left: 38px; top: 14px; min-width: 16px; height: 16px; padding: 0 3px;
+    border-radius: 8px; background: #fb7185; color: #fff; font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    pointer-events: none;
+  }
+  .dam-caption {
+    position: absolute; left: 50%; top: 48px; transform: translateX(-50%); white-space: nowrap;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.03em; color: #fda4af;
+    background: rgba(7,9,24,0.85); padding: 2px 8px; border-radius: 8px;
+    border: 1px solid rgba(251,113,133,0.4); pointer-events: none;
+  }
   .filters-bar {
     padding: 24px 48px;
     display: flex; align-items: center; gap: 12px;
@@ -394,6 +416,7 @@ const PALETTE = {
   atmosphere: '#7c5cf6',
   border: 'rgba(196, 165, 253, 0.6)',
   similarHighlight: '#22d3ee',
+  sharedDream: '#fb7185',
 };
 const TIER_COLOR = { free: PALETTE.tierFree, basic: PALETTE.tierBasic, standard: PALETTE.tierStandard, premium: PALETTE.tierPremium, vip: PALETTE.tierVip };
 const TIER_RADIUS = { free: 0.20, basic: 0.30, standard: 0.42, premium: 0.52, vip: 0.66 };
@@ -597,6 +620,7 @@ pollGlobeZoom();
 let landDustPoints = [];
 let capitalPoints = [];
 let dreamPoints = [];
+let dreamPointsById = {}; // для составных маркеров пары "Shared Dream" — быстрый доступ к данным напарника
 function refreshPoints() {
   globe.pointsData([...landDustPoints, ...capitalPoints, ...dreamPoints]);
 }
@@ -639,10 +663,34 @@ function dreamAvatarIcon(d) {
   const color = d.isSimilar ? PALETTE.similarHighlight : (TIER_COLOR[d.tier] || TIER_COLOR.basic);
   const safeUrl = d.avatarUrl.replace(/'/g, "%27");
   const safeTitle = (d.title || 'Мечта').replace(/"/g, '&quot;');
+  const ownAvatarHtml = `<div class="dam-inner${d.isSimilar ? ' dam-similar' : ''}" role="img" aria-label="${safeTitle}" style="border-color:${color};background-image:url('${safeUrl}')"></div>`;
+
+  const connectedIds = d.connectedDreamIds || [];
+  if (!connectedIds.length) {
+    return L.divIcon({
+      className: 'dream-avatar-marker',
+      html: ownAvatarHtml,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
+  }
+
+  // Есть подтверждённая связь ("🤝 Connect" принят с другой стороны) — показываем одну
+  // (последнюю) бледную аватарку напарника рядом; если связей несколько — добавляем "+N".
+  // Полный список всех связей смотрится уже на странице самой мечты, не здесь.
+  const partnerId = connectedIds[connectedIds.length - 1];
+  const partner = dreamPointsById[partnerId];
+  const partnerTitle = (partner?.title || 'Общая мечта').replace(/"/g, '&quot;');
+  const extraCount = connectedIds.length - 1;
+  const badgeHtml = extraCount > 0 ? `<div class="dam-partner-badge">+${extraCount}</div>` : '';
+  const partnerHtml = partner?.avatarUrl
+    ? `<a href="/dream/${partnerId}" target="_blank" rel="noopener noreferrer" class="dam-partner" role="img" aria-label="${partnerTitle}" style="background-image:url('${partner.avatarUrl.replace(/'/g, "%27")}')" onclick="event.stopPropagation()"></a>`
+    : `<a href="/dream/${partnerId}" target="_blank" rel="noopener noreferrer" class="dam-partner dam-partner-empty" aria-label="${partnerTitle}" onclick="event.stopPropagation()">✦</a>`;
+
   return L.divIcon({
     className: 'dream-avatar-marker',
-    html: `<div class="dam-inner${d.isSimilar ? ' dam-similar' : ''}" role="img" aria-label="${safeTitle}" style="border-color:${color};background-image:url('${safeUrl}')"></div>`,
-    iconSize: [34, 34],
+    html: `<div class="dream-pair-wrap">${ownAvatarHtml}${partnerHtml}${badgeHtml}<div class="dam-caption">🤝 Shared Dream</div></div>`,
+    iconSize: [70, 66],
     iconAnchor: [17, 17],
   });
 }
@@ -736,6 +784,19 @@ async function loadRealDreams() {
 
   // Приоритет: аватар профиля мечтателя → фото самой мечты (если профильного аватара нет) → обычная точка
   dreamPoints = rows.map(r => ({ ...r, avatarUrl: avatarByUser[r.userId] || r.dreamPhotoUrl || null }));
+
+  // Подтверждённые связи "Shared Dream" — показываются только на 2D-карте (аватарки), не на глобусе,
+  // чтобы не перегружать 3D-сцену. Тянем все accepted-связи разом: на текущем этапе их немного.
+  const { data: connRows } = await sbGlobe.from('dream_connections')
+    .select('requester_dream_id, target_dream_id')
+    .eq('status', 'accepted');
+  const connectionsByDream = {};
+  (connRows || []).forEach(c => {
+    (connectionsByDream[c.requester_dream_id] ||= []).push(c.target_dream_id);
+    (connectionsByDream[c.target_dream_id] ||= []).push(c.requester_dream_id);
+  });
+  dreamPoints = dreamPoints.map(d => ({ ...d, connectedDreamIds: connectionsByDream[d.dreamId] || [] }));
+  dreamPointsById = Object.fromEntries(dreamPoints.map(d => [d.dreamId, d]));
 
   const n = Math.max(dreamPoints.length, 1);
   dreamCountScale = Math.max(1, Math.min(3, 6 / Math.sqrt(n)));
