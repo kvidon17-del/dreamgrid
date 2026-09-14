@@ -73,6 +73,7 @@
   .dash-tab { background: none; border: none; color: var(--muted); font-size: 14px; font-weight: 600; padding: 12px 18px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; margin-bottom: -1px; }
   .dash-tab:hover { color: #fff; }
   .dash-tab.active { color: #a78bfa; border-bottom-color: #a78bfa; }
+  .tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 10px; background: #f87171; color: #fff; font-size: 11px; font-weight: 700; }
   .section-tag { font-size: 11px; font-weight: 600; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.12em; }
 
   .no-dream-card { background: var(--surface); border: 2px dashed rgba(167,139,250,0.25); border-radius: var(--radius-lg); padding: 60px 48px; text-align: center; }
@@ -359,6 +360,7 @@
   <div class="dash-tabs">
     <button class="dash-tab active" id="tab-btn-profile" onclick="switchDashTab('profile')">✦ My Profile</button>
     <button class="dash-tab" id="tab-btn-dreams" onclick="switchDashTab('dreams')">💭 My Dreams</button>
+    <button class="dash-tab" id="tab-btn-connections" onclick="switchDashTab('connections')">🤝 Connections<span id="connections-badge" class="tab-badge" style="display:none;"></span></button>
     <button class="dash-tab" id="tab-btn-moderation" onclick="switchDashTab('moderation')" style="display:none;">🛡️ Moderation</button>
   </div>
 
@@ -382,6 +384,23 @@
           <button class="btn-claim" onclick="openDreamModal()">✦ Claim your first cell</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="tab-connections" style="display:none;">
+    <div style="margin-bottom: 40px;">
+      <div class="section-header">
+        <div class="section-title">Incoming Requests</div>
+        <div class="section-tag">🤝 People who want to connect</div>
+      </div>
+      <div id="incoming-requests-list"><p style="color:var(--muted);font-size:14px;">Loading…</p></div>
+    </div>
+    <div>
+      <div class="section-header">
+        <div class="section-title">Your Connections</div>
+        <div class="section-tag">✦ Confirmed shared dreams</div>
+      </div>
+      <div id="my-connections-list"><p style="color:var(--muted);font-size:14px;">Loading…</p></div>
     </div>
   </div>
 
@@ -944,12 +963,15 @@ function renderAvatar(elementId, avatarUrl, initial) {
 
 function switchDashTab(tab) {
   document.getElementById('tab-dreams').style.display = tab === 'dreams' ? 'block' : 'none';
+  document.getElementById('tab-connections').style.display = tab === 'connections' ? 'block' : 'none';
   document.getElementById('tab-profile').style.display = tab === 'profile' ? 'block' : 'none';
   document.getElementById('tab-moderation').style.display = tab === 'moderation' ? 'block' : 'none';
   document.getElementById('tab-btn-dreams').classList.toggle('active', tab === 'dreams');
+  document.getElementById('tab-btn-connections').classList.toggle('active', tab === 'connections');
   document.getElementById('tab-btn-profile').classList.toggle('active', tab === 'profile');
   document.getElementById('tab-btn-moderation').classList.toggle('active', tab === 'moderation');
   if (tab === 'moderation') loadModerationQueue();
+  if (tab === 'connections') loadConnections();
 }
 
 // Admin-only: shows the most recently created dreams so new content (esp. photos/videos)
@@ -1044,6 +1066,15 @@ async function loadUserData(user) {
     document.getElementById('stat-views').textContent = dreams.reduce((a,d) => a + (d.views_count||0), 0);
     renderAllDreams(dreams);
   }
+  refreshConnectionsBadge();
+}
+
+async function refreshConnectionsBadge() {
+  const { count } = await sb.from('dream_connections')
+    .select('id', { count: 'exact', head: true })
+    .eq('target_user_id', currentUser.id)
+    .eq('status', 'pending');
+  updateConnectionsBadge(count || 0);
 }
 
 function renderAllDreams(dreams) {
@@ -2080,6 +2111,136 @@ function closeSimilarDreamsModal() {
 }
 function closeSimilarModalOutside(e) {
   if (e.target === document.getElementById('similar-dreams-modal')) closeSimilarDreamsModal();
+}
+
+// ── CONNECTIONS TAB ──
+function updateConnectionsBadge(count) {
+  const badge = document.getElementById('connections-badge');
+  if (!badge) return;
+  if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+async function loadConnections() {
+  document.getElementById('incoming-requests-list').innerHTML = '<p style="color:var(--muted);font-size:14px;">Loading…</p>';
+  document.getElementById('my-connections-list').innerHTML = '<p style="color:var(--muted);font-size:14px;">Loading…</p>';
+
+  const { data: incoming } = await sb.from('dream_connections')
+    .select('id, requester_dream_id, requester_user_id, target_dream_id, created_at')
+    .eq('target_user_id', currentUser.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  const { data: accepted } = await sb.from('dream_connections')
+    .select('id, requester_dream_id, requester_user_id, target_dream_id, target_user_id')
+    .eq('status', 'accepted')
+    .or(`requester_user_id.eq.${currentUser.id},target_user_id.eq.${currentUser.id}`);
+
+  // Собираем все id мечт и пользователей, которые нужно подгрузить одним запросом на каждую сущность
+  const dreamIds = new Set();
+  const userIds = new Set();
+  (incoming || []).forEach(r => { dreamIds.add(r.requester_dream_id); dreamIds.add(r.target_dream_id); userIds.add(r.requester_user_id); });
+  (accepted || []).forEach(r => { dreamIds.add(r.requester_dream_id); dreamIds.add(r.target_dream_id); userIds.add(r.requester_user_id); userIds.add(r.target_user_id); });
+
+  let dreamsById = {}, profilesById = {};
+  if (dreamIds.size) {
+    const { data: dreamRows } = await sb.from('dreams').select('id, title, photo_url').in('id', [...dreamIds]);
+    dreamsById = Object.fromEntries((dreamRows || []).map(d => [d.id, d]));
+  }
+  if (userIds.size) {
+    const { data: profileRows } = await sb.from('profiles').select('id, nickname, avatar_url').in('id', [...userIds]);
+    profilesById = Object.fromEntries((profileRows || []).map(p => [p.id, p]));
+  }
+
+  renderIncomingRequests(incoming || [], dreamsById, profilesById);
+  renderMyConnections(accepted || [], dreamsById, profilesById);
+  updateConnectionsBadge((incoming || []).length);
+}
+
+function renderIncomingRequests(rows, dreamsById, profilesById) {
+  const wrap = document.getElementById('incoming-requests-list');
+  if (!rows.length) {
+    wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;">No incoming requests right now.</p>';
+    return;
+  }
+  wrap.innerHTML = rows.map(r => {
+    const requesterDream = dreamsById[r.requester_dream_id] || {};
+    const myDream = dreamsById[r.target_dream_id] || {};
+    const requesterProfile = profilesById[r.requester_user_id] || {};
+    const name = requesterProfile.nickname || 'Dreamer';
+    const thumb = requesterDream.photo_url
+      ? `<img class="similar-dream-thumb" src="${requesterDream.photo_url}" alt="">`
+      : `<div class="similar-dream-thumb">✦</div>`;
+    return `
+      <div class="similar-dream-item">
+        <div style="display:flex;gap:14px;align-items:center;flex:1;min-width:0;">
+          ${thumb}
+          <div class="similar-dream-body">
+            <div class="similar-dream-title">${requesterDream.title || 'Untitled dream'}</div>
+            <div class="similar-dream-meta">${name} wants to connect with your "${myDream.title || 'dream'}"</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn-connect" onclick="respondToConnectionRequest('${r.id}','accepted', this)">✓ Accept</button>
+          <button class="btn-connect-status" style="cursor:pointer;border:1px solid var(--border);" onclick="respondToConnectionRequest('${r.id}','declined', this)">✕ Decline</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderMyConnections(rows, dreamsById, profilesById) {
+  const wrap = document.getElementById('my-connections-list');
+  if (!rows.length) {
+    wrap.innerHTML = '<p style="color:var(--muted);font-size:14px;">No confirmed connections yet.</p>';
+    return;
+  }
+  wrap.innerHTML = rows.map(r => {
+    const iAmRequester = r.requester_user_id === currentUser.id;
+    const myDream = dreamsById[iAmRequester ? r.requester_dream_id : r.target_dream_id] || {};
+    const theirDream = dreamsById[iAmRequester ? r.target_dream_id : r.requester_dream_id] || {};
+    const theirUserId = iAmRequester ? r.target_user_id : r.requester_user_id;
+    const theirProfile = profilesById[theirUserId] || {};
+    const name = theirProfile.nickname || 'Dreamer';
+    const thumb = theirDream.photo_url
+      ? `<img class="similar-dream-thumb" src="${theirDream.photo_url}" alt="">`
+      : `<div class="similar-dream-thumb">✦</div>`;
+    return `
+      <div class="similar-dream-item">
+        <div style="display:flex;gap:14px;align-items:center;flex:1;min-width:0;">
+          ${thumb}
+          <div class="similar-dream-body">
+            <div class="similar-dream-title">${theirDream.title || 'Untitled dream'}</div>
+            <div class="similar-dream-meta">by ${name} — connected with your "${myDream.title || 'dream'}"</div>
+          </div>
+        </div>
+        <button class="btn-connect-status" style="cursor:pointer;border:1px solid rgba(248,113,113,0.4);color:#f87171;" onclick="disconnectConnection('${r.id}', this)">💔 Disconnect</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function respondToConnectionRequest(connectionId, newStatus, btnEl) {
+  const row = btnEl.closest('.similar-dream-item');
+  row.style.opacity = '0.5';
+  const { error } = await sb.from('dream_connections')
+    .update({ status: newStatus, responded_at: new Date().toISOString() })
+    .eq('id', connectionId);
+  if (error) { showToast('Something went wrong, try again', 'error'); row.style.opacity = '1'; return; }
+  showToast(newStatus === 'accepted' ? '🤝 Connected!' : 'Request declined', 'success');
+  loadConnections();
+}
+
+async function disconnectConnection(connectionId, btnEl) {
+  if (!confirm('Disconnect this shared dream link?')) return;
+  const row = btnEl.closest('.similar-dream-item');
+  row.style.opacity = '0.5';
+  const { error } = await sb.from('dream_connections')
+    .update({ status: 'disconnected', responded_at: new Date().toISOString() })
+    .eq('id', connectionId);
+  if (error) { showToast('Something went wrong, try again', 'error'); row.style.opacity = '1'; return; }
+  showToast('💔 Disconnected', 'success');
+  loadConnections();
 }
 
 async function signOut() {
