@@ -141,7 +141,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   .how-card p { font-size: 14px; color: var(--muted); line-height: 1.75; }
   .connect-demo { max-width: 420px; margin: 0 auto; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px 28px; }
   .connect-demo-avatars { position: relative; width: 94px; height: 74px; margin: 0 auto 16px; }
-  .connect-demo-avatar { position: absolute; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .connect-demo-avatar { position: absolute; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); background-size: cover; background-position: center; text-decoration: none; }
   .connect-demo-avatar-main { left: 0; top: 0; background: linear-gradient(135deg,#a78bfa,#7c5cf6); border: 2px solid rgba(255,255,255,0.15); z-index: 2; }
   .connect-demo-avatar-faded { left: 30px; top: 14px; background: linear-gradient(135deg,#f472b6,#e879f9); opacity: 0.55; border: 2px solid #fb7185; z-index: 1; }
   .connect-demo-caption { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fda4af; background: rgba(251,113,133,0.12); border: 1px solid rgba(251,113,133,0.35); padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
@@ -409,11 +409,11 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     <p class="section-desc fade-up">Somewhere in the world, someone might be dreaming your exact dream. Dream Grid shows you who — and lets you connect.</p>
     <div class="connect-demo fade-up">
       <div class="connect-demo-avatars">
-        <div class="connect-demo-avatar connect-demo-avatar-main">🧗</div>
-        <div class="connect-demo-avatar connect-demo-avatar-faded">🧗</div>
+        <div class="connect-demo-avatar connect-demo-avatar-main" id="connect-demo-avatar-main">🧗</div>
+        <div class="connect-demo-avatar connect-demo-avatar-faded" id="connect-demo-avatar-faded">🧗</div>
       </div>
       <div class="connect-demo-caption">🤝 Shared Dream</div>
-      <div class="connect-demo-text"><strong>Mary</strong> and <strong>Jessica</strong> both dream of climbing Mount Everest — and found each other on Dream Grid.</div>
+      <div class="connect-demo-text" id="connect-demo-text"><strong>Mary</strong> and <strong>Jessica</strong> both dream of climbing Mount Everest — and found each other on Dream Grid.</div>
     </div>
   </div>
 </section>
@@ -772,6 +772,56 @@ async function loadFeaturedDreams() {
   `).join('');
 }
 loadFeaturedDreams();
+
+// Подставляем в демо-блок "Find your dream twin" реальную подтверждённую связь,
+// если она уже есть — чтобы пример на главной вызывал больше доверия, чем условная
+// заглушка. Если связей ещё нет (или не хватает фото) — просто оставляем заглушку как есть.
+async function loadConnectDemo() {
+  const { data: rows, error: connError } = await sb.from('dream_connections')
+    .select('requester_dream_id, target_dream_id, requester_user_id, target_user_id')
+    .eq('status', 'accepted')
+    .order('responded_at', { ascending: false })
+    .limit(1);
+  console.log('[connect-demo] connections query →', { rows, connError });
+  const connection = (rows || [])[0];
+  if (!connection) { console.log('[connect-demo] STOP: no accepted connection found'); return; }
+
+  const [dreamsRes, profilesRes] = await Promise.all([
+    sb.from('dreams').select('id,title,photo_url').in('id', [connection.requester_dream_id, connection.target_dream_id]),
+    sb.from('profiles').select('id,nickname,avatar_url').in('id', [connection.requester_user_id, connection.target_user_id]),
+  ]);
+  console.log('[connect-demo] dreams query →', dreamsRes);
+  console.log('[connect-demo] profiles query →', profilesRes);
+  const dreamsById = Object.fromEntries((dreamsRes.data || []).map(d => [d.id, d]));
+  const profilesById = Object.fromEntries((profilesRes.data || []).map(p => [p.id, p]));
+
+  const dreamA = dreamsById[connection.requester_dream_id];
+  const dreamB = dreamsById[connection.target_dream_id];
+  const profileA = profilesById[connection.requester_user_id];
+  const profileB = profilesById[connection.target_user_id];
+  if (!dreamA || !dreamB) { console.log('[connect-demo] STOP: dream(s) not found', { dreamA, dreamB }); return; }
+
+  const avatarUrlA = profileA?.avatar_url || dreamA.photo_url;
+  const avatarUrlB = profileB?.avatar_url || dreamB.photo_url;
+  if (!avatarUrlA || !avatarUrlB) { console.log('[connect-demo] STOP: missing avatar', { avatarUrlA, avatarUrlB }); return; } // нет фото у кого-то из пары — оставляем заглушку, не показываем пустые кружки
+
+  console.log('[connect-demo] OK — applying real data', { dreamA, dreamB, profileA, profileB });
+
+  const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  document.getElementById('connect-demo-avatar-main').outerHTML =
+    `<a href="/dream/${dreamA.id}" id="connect-demo-avatar-main" class="connect-demo-avatar connect-demo-avatar-main" style="background-image:url('${avatarUrlA.replace(/'/g, '%27')}')"></a>`;
+  document.getElementById('connect-demo-avatar-faded').outerHTML =
+    `<a href="/dream/${dreamB.id}" id="connect-demo-avatar-faded" class="connect-demo-avatar connect-demo-avatar-faded" style="background-image:url('${avatarUrlB.replace(/'/g, '%27')}')"></a>`;
+
+  const nameA = escapeHtml(profileA?.nickname || 'A dreamer');
+  const nameB = escapeHtml(profileB?.nickname || 'another dreamer');
+  const titleA = escapeHtml(dreamA.title || 'a dream');
+  const titleB = escapeHtml(dreamB.title || 'a dream');
+  document.getElementById('connect-demo-text').innerHTML =
+    `<strong>${nameA}</strong> dreams of "${titleA}". <strong>${nameB}</strong> dreams of "${titleB}". They found each other on Dream Grid.`;
+}
+loadConnectDemo();
 
 // ── Auth state ──
 let currentUser = null;
