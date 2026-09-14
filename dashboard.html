@@ -112,6 +112,11 @@
   .similar-dream-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .similar-dream-meta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .similar-dream-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(167,139,250,0.15); color: #a78bfa; }
+  .btn-connect { flex-shrink: 0; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 20px; border: 1px solid rgba(167,139,250,0.5); background: rgba(167,139,250,0.12); color: #d8b4fe; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+  .btn-connect:hover { background: rgba(167,139,250,0.25); }
+  .btn-connect:disabled { opacity: 0.6; cursor: default; }
+  .btn-connect-status { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px; color: var(--muted); white-space: nowrap; }
+  .btn-connect-status.accepted { color: #4ade80; }
   .tag-active { background: rgba(99,60,220,0.2); border: 1px solid rgba(99,60,220,0.4); color: #a78bfa; }
   .tag-tier { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
   .dream-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
@@ -1977,7 +1982,23 @@ async function openSimilarDreamsModal(dreamId) {
   const { data: profiles } = await sb.from('profiles').select('id, nickname, avatar_url').in('id', userIds);
   const profileByUser = Object.fromEntries((profiles || []).map(p => [p.id, p]));
 
-  renderSimilarDreams(rankedMatches, profileByUser);
+  // Проверяем, нет ли уже запроса/связи между этой мечтой и каждым из совпадений
+  // (в любом направлении — мог запрос отправить как я, так и они).
+  const matchIds = rankedMatches.map(m => m.id);
+  const connectionStatusByDreamId = {};
+  const { data: existingConnections } = await sb.from('dream_connections')
+    .select('requester_dream_id, target_dream_id, status')
+    .or(`and(requester_dream_id.eq.${dreamId},target_dream_id.in.(${matchIds.join(',')})),and(target_dream_id.eq.${dreamId},requester_dream_id.in.(${matchIds.join(',')}))`);
+  (existingConnections || []).forEach(c => {
+    const otherId = c.requester_dream_id === dreamId ? c.target_dream_id : c.requester_dream_id;
+    // Если по этой паре уже несколько строк (например, был отказ, потом новый запрос) — берём самый "сильный" статус
+    const rank = { declined: 0, pending: 1, accepted: 2, disconnected: 0 };
+    if (!connectionStatusByDreamId[otherId] || rank[c.status] > rank[connectionStatusByDreamId[otherId]]) {
+      connectionStatusByDreamId[otherId] = c.status;
+    }
+  });
+
+  renderSimilarDreams(rankedMatches, profileByUser, dreamId, connectionStatusByDreamId);
   renderSimilarMapCta(rankedMatches);
 }
 
@@ -2001,7 +2022,7 @@ function renderSimilarMapCta(matches) {
   cta.style.display = 'block';
 }
 
-function renderSimilarDreams(matches, profileByUser) {
+function renderSimilarDreams(matches, profileByUser, originDreamId, connectionStatusByDreamId) {
   const list = document.getElementById('similar-dreams-list');
   list.innerHTML = matches.map(m => {
     const profile = profileByUser[m.user_id] || {};
@@ -2010,17 +2031,48 @@ function renderSimilarDreams(matches, profileByUser) {
       ? `<img class="similar-dream-thumb" src="${m.photo_url}" alt="">`
       : `<div class="similar-dream-thumb">✦</div>`;
     const badges = [m.category, m.region].filter(Boolean).map(b => `<span class="similar-dream-badge">${b}</span>`).join('');
+    const status = connectionStatusByDreamId[m.id];
+    let connectHtml;
+    if (status === 'accepted') {
+      connectHtml = `<span class="btn-connect-status accepted">✅ Connected</span>`;
+    } else if (status === 'pending') {
+      connectHtml = `<span class="btn-connect-status">⏳ Pending</span>`;
+    } else {
+      connectHtml = `<button class="btn-connect" onclick="sendConnectionRequest('${originDreamId}','${m.id}','${m.user_id}', this)">🤝 Connect</button>`;
+    }
     return `
-      <a class="similar-dream-item" href="${window.location.origin}/dream/${m.id}" target="_blank" rel="noopener noreferrer">
-        ${thumb}
-        <div class="similar-dream-body">
-          <div class="similar-dream-title">${m.title}</div>
-          <div class="similar-dream-meta">by ${name} ${badges}</div>
-        </div>
-      </a>
+      <div class="similar-dream-item">
+        <a href="${window.location.origin}/dream/${m.id}" target="_blank" rel="noopener noreferrer" style="display:flex;gap:14px;align-items:center;flex:1;min-width:0;text-decoration:none;">
+          ${thumb}
+          <div class="similar-dream-body">
+            <div class="similar-dream-title">${m.title}</div>
+            <div class="similar-dream-meta">by ${name} ${badges}</div>
+          </div>
+        </a>
+        ${connectHtml}
+      </div>
     `;
   }).join('');
   list.style.display = 'block';
+}
+
+async function sendConnectionRequest(originDreamId, targetDreamId, targetUserId, btnEl) {
+  btnEl.disabled = true;
+  btnEl.textContent = '…';
+  const { error } = await sb.from('dream_connections').insert({
+    requester_dream_id: originDreamId,
+    requester_user_id: currentUser.id,
+    target_dream_id: targetDreamId,
+    target_user_id: targetUserId,
+    status: 'pending',
+  });
+  if (error) {
+    // Скорее всего запрос уже существует (pending) — просто отражаем это в UI, не показывая ошибку пользователю
+    btnEl.outerHTML = '<span class="btn-connect-status">⏳ Pending</span>';
+    return;
+  }
+  btnEl.outerHTML = '<span class="btn-connect-status">⏳ Pending</span>';
+  showToast('🤝 Connection request sent!', 'success');
 }
 
 function closeSimilarDreamsModal() {
