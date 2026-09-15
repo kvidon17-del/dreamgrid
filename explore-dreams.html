@@ -186,7 +186,6 @@
     font-size: 10px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px;
   }
-  .tier-free { background: rgba(148,163,184,0.25); border: 1px solid rgba(148,163,184,0.45); color: #cbd5e1; }
   .tier-basic { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; }
   .tier-standard { background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); color: #d8b4fe; }
   .tier-premium { background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; }
@@ -201,6 +200,9 @@
 
   .card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
   .card-cell { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .card-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .card-badge { font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: rgba(167,139,250,0.15); color: #a78bfa; white-space: nowrap; }
+  .card-badge-dreamer { color: var(--muted); font-size: 11px; }
   .card-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 8px; line-height: 1.4; flex: 1; }
   .card-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card-footer { display: flex; align-items: center; justify-content: space-between; }
@@ -334,11 +336,28 @@
 <div class="filters-bar">
   <div class="search-box">
     <span>🔍</span>
-    <input type="text" id="search-input" placeholder="Search dreams..." oninput="handleSearch()">
+    <input type="text" id="search-input" placeholder="Search by title, description, region, or dreamer..." oninput="handleSearch()">
   </div>
   <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
   <button class="filter-btn" onclick="setFilter('active', this)">● Active</button>
   <button class="filter-btn" onclick="setFilter('fulfilled', this)">✓ Fulfilled</button>
+  <select class="sort-select" id="category-filter" onchange="setCategoryFilter(this.value)">
+    <option value="">All categories</option>
+    <option value="Travel">Travel</option>
+    <option value="Career">Career</option>
+    <option value="Adventure">Adventure</option>
+    <option value="Sport & Fitness">Sport & Fitness</option>
+    <option value="Family & Relationships">Family & Relationships</option>
+    <option value="Creativity & Art">Creativity & Art</option>
+    <option value="Learning & Growth">Learning & Growth</option>
+    <option value="Home & Lifestyle">Home & Lifestyle</option>
+    <option value="Health">Health</option>
+    <option value="Money & Luck">Money & Luck</option>
+    <option value="Luxury Items">Luxury Items</option>
+    <option value="Cars & Transportation">Cars & Transportation</option>
+    <option value="Charity">Charity</option>
+    <option value="Other">Other</option>
+  </select>
   <select class="sort-select" onchange="setSort(this.value)">
     <option value="featured">✦ Featured</option>
     <option value="newest">Newest first</option>
@@ -361,8 +380,8 @@
   </div>
   <div class="cta-banner">
     <h3>Ready to share your dream? ✦</h3>
-    <p>Join the world's map of dreams. Start for free, or claim a bigger spot from just $3.</p>
-    <a href="/" class="btn-cta-main" id="cta-share-link">✦ Share Your Dream</a>
+    <p>Join the world's map of dreams. Claim your cell starting from just €3.</p>
+    <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
   </div>
 </main>
 
@@ -379,13 +398,13 @@ const PAGE_SIZE = 12;
 let allDreams = [];
 let filteredDreams = [];
 let currentFilter = 'all';
+let currentCategory = '';
 let currentSort = 'featured';
 let searchQuery = '';
 let displayedCount = PAGE_SIZE;
-let isLoggedIn = false;
 
-const tierEmojis = { free: '🌱', basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
-const tierLabels = { free: 'Free', basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
+const tierEmojis = { basic: '✨', standard: '💫', premium: '⭐', vip: '👑' };
+const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium', vip: 'VIP' };
 
 
 let currentView = localStorage.getItem('dreamgrid_view') || 'grid';
@@ -404,9 +423,6 @@ async function init() {
   if (user) {
     document.getElementById('nav-dashboard').style.display = 'inline-flex';
     document.getElementById('nav-share').style.display = 'none';
-    isLoggedIn = true;
-    const ctaLink = document.getElementById('cta-share-link');
-    if (ctaLink) ctaLink.href = '/dashboard?new=1';
   }
 
   await loadDreams();
@@ -421,7 +437,15 @@ async function loadDreams() {
 
   if (error || !dreams) { renderEmpty(); return; }
 
-  allDreams = dreams;
+  // Подтягиваем ники мечтателей отдельным запросом (тот же паттерн, что и на explore.html) —
+  // нужно и для поиска по имени, и чтобы показать имя автора на карточке.
+  const userIds = [...new Set(dreams.map(d => d.user_id).filter(Boolean))];
+  let nicknameByUser = {};
+  if (userIds.length) {
+    const { data: profiles } = await sb.from('profiles').select('id, nickname').in('id', userIds);
+    nicknameByUser = Object.fromEntries((profiles || []).map(p => [p.id, p.nickname]));
+  }
+  allDreams = dreams.map(d => ({ ...d, dreamerName: nicknameByUser[d.user_id] || '' }));
 
   // Update stats
   document.getElementById('total-dreams').textContent = dreams.length;
@@ -438,17 +462,22 @@ function applyFilters() {
   if (currentFilter === 'active') result = result.filter(d => d.status === 'active');
   if (currentFilter === 'fulfilled') result = result.filter(d => d.status === 'fulfilled');
 
-  // Search
+  // Filter by category
+  if (currentCategory) result = result.filter(d => d.category === currentCategory);
+
+  // Search — заголовок, описание, регион, имя мечтателя
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     result = result.filter(d =>
       d.title?.toLowerCase().includes(q) ||
-      d.description?.toLowerCase().includes(q)
+      d.description?.toLowerCase().includes(q) ||
+      d.region?.toLowerCase().includes(q) ||
+      d.dreamerName?.toLowerCase().includes(q)
     );
   }
 
   // Sort
-  const tierRank = { vip: 4, premium: 3, standard: 2, basic: 1, free: 0 };
+  const tierRank = { vip: 3, premium: 2, standard: 1, basic: 0 };
   if (currentSort === 'featured') {
     result.sort((a,b) => {
       const rankDiff = (tierRank[b.cells?.tier] ?? 0) - (tierRank[a.cells?.tier] ?? 0);
@@ -490,11 +519,18 @@ function renderDreams() {
            <span class="card-status status-${dream.status}" style="position:absolute;top:12px;right:12px;">${dream.status === 'fulfilled' ? '✓ Fulfilled' : '● Active'}</span>
          </div>`;
 
+    const metaBadges = [
+      dream.category ? `<span class="card-badge">${dream.category}</span>` : '',
+      dream.region ? `<span class="card-badge">📍 ${dream.region}</span>` : '',
+      dream.dreamerName ? `<span class="card-badge-dreamer">by ${dream.dreamerName}</span>` : '',
+    ].filter(Boolean).join('');
+
     return `
       <a class="dream-card" href="/dream/${dream.id}">
         ${photoHtml}
         <div class="card-body">
           <div class="card-cell">Cell #${dream.cell_id}</div>
+          ${metaBadges ? `<div class="card-meta">${metaBadges}</div>` : ''}
           <div class="card-title">${dream.title}</div>
           <div class="card-desc">${dream.description || ''}</div>
           <div class="card-footer">
@@ -517,7 +553,7 @@ function renderEmpty() {
       <div class="es-icon">🌟</div>
       <h3>No dreams found</h3>
       <p>Be the first to share your dream with the world!</p>
-      <a href="${isLoggedIn ? '/dashboard?new=1' : '/'}" class="btn-cta-main" id="empty-share-link">✦ Share Your Dream</a>
+      <a href="/" class="btn-cta-main">✦ Share Your Dream</a>
     </div>
   `;
   document.getElementById('load-more-wrap').style.display = 'none';
@@ -537,6 +573,11 @@ function setFilter(filter, btn) {
 
 function setSort(sort) {
   currentSort = sort;
+  applyFilters();
+}
+
+function setCategoryFilter(category) {
+  currentCategory = category;
   applyFilters();
 }
 
