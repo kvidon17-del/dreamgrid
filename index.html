@@ -38,21 +38,22 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
     --radius-sm: 10px; --radius: 16px; --radius-lg: 24px;
   }
   html { scroll-behavior: smooth; }
-  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; position: relative; }
 
-  /* STARFIELD — тихий фон под всем сайтом (кроме Explore Grid, там своя 3D-сцена).
-     Тема мечты и ночного неба — "загадать желание на падающую звезду" — поэтому это не
-     украшение ради украшения, а продолжение смысла самого продукта. Держим неброским:
-     мерцание медленное, звёзды мелкие и полупрозрачные, падающие звёзды — редкие гости. */
-  .dg-starfield { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 0; }
+  /* STARFIELD — тихий фон под всем сайтом (кроме Globe View, там своя 3D-сцена).
+     Абсолютное позиционирование на всю высоту страницы, НЕ fixed — так фон часть обычного
+     контента и не ловит краевые случаи position:fixed (пропадание при скролле в некоторых
+     браузерах, особенно в паре с overflow-x:hidden на body). Тема мечты и ночного неба —
+     "загадать желание на падающую звезду" — поэтому это не украшение ради украшения. */
+  .dg-starfield { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 0; }
   .dg-starfield svg { width: 100%; height: 100%; display: block; }
   .dg-star { animation-name: dg-twinkle; animation-timing-function: ease-in-out; animation-iteration-count: infinite; transform-box: fill-box; transform-origin: center; }
   @keyframes dg-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.85; } }
-  .dg-shooting-star { position: absolute; top: -4%; width: 2px; height: 2px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.85); opacity: 0; }
+  .dg-shooting-star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.85); opacity: 0; }
   .dg-shooting-star::before { content: ''; position: absolute; top: 50%; right: 0; width: 90px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.8), transparent); transform: translateY(-50%); }
-  .dg-shooting-star.s1 { left: 18%; animation: dg-shoot 17s linear infinite; animation-delay: 3s; }
-  .dg-shooting-star.s2 { left: 58%; animation: dg-shoot 23s linear infinite; animation-delay: 10s; }
-  .dg-shooting-star.s3 { left: 80%; animation: dg-shoot 20s linear infinite; animation-delay: 15s; }
+  .dg-shooting-star.s1 { left: 18%; top: 6%; animation: dg-shoot 17s linear infinite; animation-delay: 3s; }
+  .dg-shooting-star.s2 { left: 58%; top: 38%; animation: dg-shoot 23s linear infinite; animation-delay: 10s; }
+  .dg-shooting-star.s3 { left: 80%; top: 72%; animation: dg-shoot 20s linear infinite; animation-delay: 15s; }
   @keyframes dg-shoot {
     0% { opacity: 0; transform: translate(0,0) rotate(35deg); }
     2% { opacity: 1; }
@@ -62,6 +63,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
   @media (prefers-reduced-motion: reduce) {
     .dg-star { animation: none; opacity: 0.35; }
     .dg-shooting-star { display: none; }
+  }
   }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -342,7 +344,7 @@ if (window.location.hash && window.location.hash.includes('type=recovery')) {
 </head>
 <body>
 <div class="dg-starfield" aria-hidden="true">
-  <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
+  <svg viewBox="0 0 1000 1000" preserveAspectRatio="none">
       <circle class="dg-star" cx="639.4" cy="25.0" r="0.93" fill="#fff" opacity="0.33" style="animation-duration:5.4s;animation-delay:-4.1s"/>
       <circle class="dg-star" cx="892.2" cy="86.9" r="1.11" fill="#fff" opacity="0.26" style="animation-duration:3.4s;animation-delay:-3.0s"/>
       <circle class="dg-star" cx="26.5" cy="198.8" r="1.38" fill="#fff" opacity="0.44" style="animation-duration:3.4s;animation-delay:-3.5s"/>

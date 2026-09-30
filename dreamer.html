@@ -127,8 +127,112 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#070918">
+<style>
+/* STARFIELD — тихий фон под всеми страницами сайта (кроме Globe View — там своя 3D-сцена).
+   Абсолютное позиционирование на всю высоту страницы, НЕ fixed — так фон часть обычного
+   контента и не ловит краевые случаи position:fixed (пропадание при скролле в некоторых
+   браузерах, особенно в паре с overflow-x:hidden на body). Тема мечты/ночного неба —
+   "загадать желание на падающую звезду" — поэтому это не украшение ради украшения. */
+body { position: relative; }
+.dg-starfield { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 0; }
+.dg-starfield svg { width: 100%; height: 100%; display: block; }
+.dg-star { animation-name: dg-twinkle; animation-timing-function: ease-in-out; animation-iteration-count: infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes dg-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.85; } }
+.dg-shooting-star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(255,255,255,0.85); opacity: 0; }
+.dg-shooting-star::before { content: ''; position: absolute; top: 50%; right: 0; width: 90px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.8), transparent); transform: translateY(-50%); }
+.dg-shooting-star.s1 { left: 18%; top: 6%; animation: dg-shoot 17s linear infinite; animation-delay: 3s; }
+.dg-shooting-star.s2 { left: 58%; top: 38%; animation: dg-shoot 23s linear infinite; animation-delay: 10s; }
+.dg-shooting-star.s3 { left: 80%; top: 72%; animation: dg-shoot 20s linear infinite; animation-delay: 15s; }
+@keyframes dg-shoot {
+  0% { opacity: 0; transform: translate(0,0) rotate(35deg); }
+  2% { opacity: 1; }
+  9% { opacity: 0; transform: translate(-240px, 340px) rotate(35deg); }
+  100% { opacity: 0; transform: translate(-240px, 340px) rotate(35deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dg-star { animation: none; opacity: 0.35; }
+  .dg-shooting-star { display: none; }
+}
+</style>
 </head>
 <body>
+<div class="dg-starfield" aria-hidden="true">
+  <svg viewBox="0 0 1000 1000" preserveAspectRatio="none">
+      <circle class="dg-star" cx="323.8" cy="150.8" r="1.38" fill="#fff" opacity="0.28" style="animation-duration:4.6s;animation-delay:-2.2s"/>
+      <circle class="dg-star" cx="58.0" cy="507.4" r="0.64" fill="#fff" opacity="0.4" style="animation-duration:2.8s;animation-delay:-0.5s"/>
+      <circle class="dg-star" cx="424.5" cy="826.9" r="0.75" fill="#fff" opacity="0.33" style="animation-duration:5.0s;animation-delay:-5.7s"/>
+      <circle class="dg-star" cx="577.1" cy="396.7" r="1.77" fill="#fff" opacity="0.27" style="animation-duration:5.9s;animation-delay:-1.7s"/>
+      <circle class="dg-star" cx="144.3" cy="117.8" r="0.97" fill="#fff" opacity="0.54" style="animation-duration:3.2s;animation-delay:-3.5s"/>
+      <circle class="dg-star" cx="638.9" cy="372.4" r="1.26" fill="#fff" opacity="0.27" style="animation-duration:2.7s;animation-delay:-1.2s"/>
+      <circle class="dg-star" cx="680.4" cy="427.6" r="0.98" fill="#fff" opacity="0.45" style="animation-duration:4.3s;animation-delay:-1.8s"/>
+      <circle class="dg-star" cx="794.4" cy="699.0" r="0.89" fill="#fff" opacity="0.45" style="animation-duration:4.6s;animation-delay:-5.3s"/>
+      <circle class="dg-star" cx="729.4" cy="287.9" r="1.78" fill="#fff" opacity="0.29" style="animation-duration:4.2s;animation-delay:-4.5s"/>
+      <circle class="dg-star" cx="152.0" cy="489.0" r="0.65" fill="#fff" opacity="0.48" style="animation-duration:5.6s;animation-delay:-3.4s"/>
+      <circle class="dg-star" cx="875.5" cy="313.7" r="1.43" fill="#fff" opacity="0.46" style="animation-duration:4.8s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="840.0" cy="944.7" r="1.17" fill="#fff" opacity="0.48" style="animation-duration:2.7s;animation-delay:-4.2s"/>
+      <circle class="dg-star" cx="647.1" cy="993.1" r="1.59" fill="#fff" opacity="0.35" style="animation-duration:4.0s;animation-delay:-4.0s"/>
+      <circle class="dg-star" cx="22.6" cy="461.7" r="0.8" fill="#fff" opacity="0.29" style="animation-duration:2.7s;animation-delay:-4.6s"/>
+      <circle class="dg-star" cx="129.3" cy="247.6" r="1.07" fill="#fff" opacity="0.55" style="animation-duration:2.8s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="549.4" cy="883.4" r="1.58" fill="#fff" opacity="0.55" style="animation-duration:3.6s;animation-delay:-2.5s"/>
+      <circle class="dg-star" cx="358.8" cy="884.2" r="1.75" fill="#fff" opacity="0.3" style="animation-duration:3.2s;animation-delay:-1.4s"/>
+      <circle class="dg-star" cx="233.3" cy="485.0" r="1.31" fill="#fff" opacity="0.34" style="animation-duration:2.5s;animation-delay:-2.5s"/>
+      <circle class="dg-star" cx="369.3" cy="566.3" r="1.74" fill="#fff" opacity="0.49" style="animation-duration:4.6s;animation-delay:-3.7s"/>
+      <circle class="dg-star" cx="676.2" cy="54.0" r="1.68" fill="#fff" opacity="0.52" style="animation-duration:6.0s;animation-delay:-4.8s"/>
+      <circle class="dg-star" cx="392.4" cy="399.0" r="0.72" fill="#fff" opacity="0.47" style="animation-duration:2.7s;animation-delay:-0.4s"/>
+      <circle class="dg-star" cx="208.8" cy="162.3" r="1.01" fill="#fff" opacity="0.27" style="animation-duration:2.5s;animation-delay:-0.9s"/>
+      <circle class="dg-star" cx="101.5" cy="363.6" r="0.63" fill="#fff" opacity="0.56" style="animation-duration:5.0s;animation-delay:-0.9s"/>
+      <circle class="dg-star" cx="252.3" cy="347.4" r="1.04" fill="#fff" opacity="0.29" style="animation-duration:5.9s;animation-delay:-6.0s"/>
+      <circle class="dg-star" cx="466.0" cy="483.8" r="0.7" fill="#fff" opacity="0.29" style="animation-duration:3.9s;animation-delay:-1.6s"/>
+      <circle class="dg-star" cx="828.9" cy="161.4" r="0.63" fill="#fff" opacity="0.58" style="animation-duration:4.6s;animation-delay:-0.9s"/>
+      <circle class="dg-star" cx="543.2" cy="27.0" r="1.23" fill="#fff" opacity="0.59" style="animation-duration:6.0s;animation-delay:-4.2s"/>
+      <circle class="dg-star" cx="261.1" cy="366.7" r="0.8" fill="#fff" opacity="0.52" style="animation-duration:4.6s;animation-delay:-4.7s"/>
+      <circle class="dg-star" cx="329.7" cy="223.0" r="1.57" fill="#fff" opacity="0.59" style="animation-duration:5.9s;animation-delay:-4.8s"/>
+      <circle class="dg-star" cx="818.3" cy="739.9" r="0.87" fill="#fff" opacity="0.43" style="animation-duration:3.9s;animation-delay:-0.2s"/>
+      <circle class="dg-star" cx="27.9" cy="279.4" r="0.91" fill="#fff" opacity="0.49" style="animation-duration:6.3s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="937.0" cy="988.0" r="1.75" fill="#fff" opacity="0.38" style="animation-duration:3.4s;animation-delay:-1.4s"/>
+      <circle class="dg-star" cx="196.7" cy="204.4" r="1.35" fill="#fff" opacity="0.57" style="animation-duration:5.9s;animation-delay:-2.9s"/>
+      <circle class="dg-star" cx="653.0" cy="799.6" r="0.7" fill="#fff" opacity="0.48" style="animation-duration:6.1s;animation-delay:-4.7s"/>
+      <circle class="dg-star" cx="750.1" cy="478.0" r="0.81" fill="#fff" opacity="0.53" style="animation-duration:3.8s;animation-delay:-4.8s"/>
+      <circle class="dg-star" cx="971.7" cy="395.8" r="1.08" fill="#fff" opacity="0.58" style="animation-duration:5.4s;animation-delay:-1.0s"/>
+      <circle class="dg-star" cx="127.0" cy="151.2" r="1.69" fill="#fff" opacity="0.53" style="animation-duration:3.1s;animation-delay:-5.0s"/>
+      <circle class="dg-star" cx="980.3" cy="657.3" r="1.02" fill="#fff" opacity="0.44" style="animation-duration:3.0s;animation-delay:-0.1s"/>
+      <circle class="dg-star" cx="970.9" cy="649.7" r="1.23" fill="#fff" opacity="0.58" style="animation-duration:4.2s;animation-delay:-5.2s"/>
+      <circle class="dg-star" cx="826.2" cy="211.0" r="0.9" fill="#fff" opacity="0.35" style="animation-duration:3.5s;animation-delay:-3.5s"/>
+      <circle class="dg-star" cx="259.4" cy="419.0" r="0.76" fill="#fff" opacity="0.57" style="animation-duration:3.9s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="583.3" cy="904.3" r="1.1" fill="#fff" opacity="0.57" style="animation-duration:4.5s;animation-delay:-3.2s"/>
+      <circle class="dg-star" cx="523.5" cy="18.7" r="1.13" fill="#fff" opacity="0.31" style="animation-duration:2.5s;animation-delay:-4.8s"/>
+      <circle class="dg-star" cx="172.3" cy="473.5" r="1.47" fill="#fff" opacity="0.44" style="animation-duration:3.8s;animation-delay:-3.1s"/>
+      <circle class="dg-star" cx="555.4" cy="784.3" r="0.73" fill="#fff" opacity="0.45" style="animation-duration:3.5s;animation-delay:-1.7s"/>
+      <circle class="dg-star" cx="772.3" cy="507.7" r="1.27" fill="#fff" opacity="0.52" style="animation-duration:6.1s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="612.5" cy="505.6" r="1.21" fill="#fff" opacity="0.49" style="animation-duration:4.3s;animation-delay:-3.2s"/>
+      <circle class="dg-star" cx="478.0" cy="941.5" r="1.44" fill="#fff" opacity="0.56" style="animation-duration:6.3s;animation-delay:-1.6s"/>
+      <circle class="dg-star" cx="559.5" cy="943.3" r="1.61" fill="#fff" opacity="0.3" style="animation-duration:3.0s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="72.5" cy="240.6" r="0.69" fill="#fff" opacity="0.48" style="animation-duration:5.6s;animation-delay:-5.4s"/>
+      <circle class="dg-star" cx="154.4" cy="716.1" r="1.39" fill="#fff" opacity="0.3" style="animation-duration:6.0s;animation-delay:-5.8s"/>
+      <circle class="dg-star" cx="219.6" cy="952.5" r="1.08" fill="#fff" opacity="0.42" style="animation-duration:6.5s;animation-delay:-5.0s"/>
+      <circle class="dg-star" cx="161.5" cy="431.5" r="1.22" fill="#fff" opacity="0.37" style="animation-duration:3.3s;animation-delay:-1.9s"/>
+      <circle class="dg-star" cx="722.2" cy="19.5" r="1.26" fill="#fff" opacity="0.4" style="animation-duration:2.6s;animation-delay:-2.0s"/>
+      <circle class="dg-star" cx="623.9" cy="512.3" r="0.68" fill="#fff" opacity="0.59" style="animation-duration:5.7s;animation-delay:-5.8s"/>
+      <circle class="dg-star" cx="104.8" cy="265.6" r="0.65" fill="#fff" opacity="0.52" style="animation-duration:3.6s;animation-delay:-0.8s"/>
+      <circle class="dg-star" cx="422.3" cy="911.4" r="1.58" fill="#fff" opacity="0.34" style="animation-duration:3.1s;animation-delay:-5.5s"/>
+      <circle class="dg-star" cx="570.6" cy="700.4" r="0.71" fill="#fff" opacity="0.27" style="animation-duration:5.3s;animation-delay:-2.6s"/>
+      <circle class="dg-star" cx="72.4" cy="938.3" r="1.36" fill="#fff" opacity="0.53" style="animation-duration:2.8s;animation-delay:-5.1s"/>
+      <circle class="dg-star" cx="66.6" cy="862.8" r="1.14" fill="#fff" opacity="0.37" style="animation-duration:4.7s;animation-delay:-5.6s"/>
+      <circle class="dg-star" cx="267.9" cy="129.2" r="1.23" fill="#fff" opacity="0.33" style="animation-duration:2.9s;animation-delay:-1.0s"/>
+      <circle class="dg-star" cx="50.4" cy="201.8" r="0.97" fill="#fff" opacity="0.36" style="animation-duration:5.5s;animation-delay:-1.7s"/>
+      <circle class="dg-star" cx="500.1" cy="177.9" r="1.02" fill="#fff" opacity="0.26" style="animation-duration:3.5s;animation-delay:-0.1s"/>
+      <circle class="dg-star" cx="733.1" cy="551.0" r="0.83" fill="#fff" opacity="0.42" style="animation-duration:6.2s;animation-delay:-0.6s"/>
+      <circle class="dg-star" cx="818.9" cy="432.2" r="1.19" fill="#fff" opacity="0.54" style="animation-duration:4.1s;animation-delay:-3.0s"/>
+      <circle class="dg-star" cx="687.7" cy="982.4" r="1.01" fill="#fff" opacity="0.54" style="animation-duration:5.3s;animation-delay:-3.8s"/>
+      <circle class="dg-star" cx="404.7" cy="347.6" r="0.67" fill="#fff" opacity="0.3" style="animation-duration:2.8s;animation-delay:-4.4s"/>
+      <circle class="dg-star" cx="255.6" cy="163.2" r="0.7" fill="#fff" opacity="0.54" style="animation-duration:6.0s;animation-delay:-4.0s"/>
+      <circle class="dg-star" cx="281.9" cy="242.2" r="0.95" fill="#fff" opacity="0.41" style="animation-duration:3.1s;animation-delay:-2.7s"/>
+      <circle class="dg-star" cx="263.2" cy="961.8" r="1.77" fill="#fff" opacity="0.44" style="animation-duration:3.5s;animation-delay:-5.8s"/>  </svg>
+  <div class="dg-shooting-star s1"></div>
+  <div class="dg-shooting-star s2"></div>
+  <div class="dg-shooting-star s3"></div>
+</div>
+
 
 <div id="loading">
   <div class="loading-logo">✦ Dream Grid</div>
