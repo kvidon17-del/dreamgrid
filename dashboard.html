@@ -1205,7 +1205,7 @@ function renderAllDreams(dreams) {
           <div class="dream-tags">
             <span class="dream-tag tag-active">● ${dream.status === 'fulfilled' ? 'Fulfilled ✓' : 'Active Dream'}</span>
             <span class="dream-tag tag-tier">${(dream.cells?.tier || 'basic').toUpperCase()}</span>
-            ${!dream.category || !dream.region ? `<span class="dream-tag tag-nudge" onclick="openEditDreamModal('${dream.id}')">✨ Add ${!dream.category && !dream.region ? 'category &amp; region' : (!dream.category ? 'category' : 'region')}</span>` : ''}
+            ${!dream.category || !dream.region ? `<span class="dream-tag tag-nudge" onclick="openEditDreamModal('${dream.id}')">${!dream.category && !dream.region ? '🏷️📍 Add category & region' : (!dream.category ? '🏷️ Add category' : '📍 Add region')}</span>` : ''}
           </div>
           <div class="dream-actions">
             <button class="btn-action" onclick="openEditDreamModal('${dream.id}')">✏️ Edit</button>
